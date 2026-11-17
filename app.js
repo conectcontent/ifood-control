@@ -88,7 +88,7 @@
       return false;
     }
 
-    if (label) label.textContent = `Ativado (${activeKey})`;
+    if (label) label.textContent = 'Licença Ativa (Autorizado)';
     if (screen) screen.classList.add('hidden');
 
     if (navigator.onLine) {
@@ -134,7 +134,7 @@
       const screen = document.getElementById('activationScreen');
       if (screen) screen.classList.add('hidden');
       const label = document.getElementById('licenseStatusLabel');
-      if (label) label.textContent = `Ativado (${key})`;
+      if (label) label.textContent = 'Licença Ativa (Autorizado)';
       triggerHaptic(40);
       showToast('Aplicativo desbloqueado com sucesso! Seja bem-vindo!', '🎉');
       renderAll();
@@ -1642,6 +1642,17 @@
         if (e.key === 'Enter') {
           validateAndActivateKey(activationKeyInput.value);
         }
+      });
+    }
+
+    const toggleShowKeyInput = document.getElementById('toggleShowKeyInput');
+    const iconEyeKey = document.getElementById('iconEyeKey');
+    if (toggleShowKeyInput && activationKeyInput && iconEyeKey) {
+      toggleShowKeyInput.addEventListener('click', () => {
+        const isPass = activationKeyInput.type === 'password';
+        activationKeyInput.type = isPass ? 'text' : 'password';
+        iconEyeKey.setAttribute('data-lucide', isPass ? 'eye-off' : 'eye');
+        if (window.lucide) window.lucide.createIcons();
       });
     }
 

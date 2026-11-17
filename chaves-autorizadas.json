@@ -1,0 +1,12 @@
+{
+  "versao": "1.0",
+  "master_key": "CONECT2026",
+  "chaves_ativas": [
+    "CONECT2026",
+    "MICHAEL-VIP",
+    "IFOOD-PRO-01",
+    "IFOOD-PRO-02",
+    "VIP-ENTREGADOR"
+  ],
+  "mensagem_bloqueio": "Acesso não autorizado ou chave revogada. Solicite liberação ao administrador."
+}

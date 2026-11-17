@@ -189,6 +189,52 @@
   <div class="ambient-sphere-purple" aria-hidden="true"></div>
   <div class="ambient-sphere-cyan" aria-hidden="true"></div>
 
+  <!-- TELA DE ATIVAÇÃO / CONTROLE DE ACESSO EXCLUSIVO -->
+  <div id="activationScreen" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-[#070913]/95 backdrop-blur-2xl">
+    <div class="glass-card w-full max-w-sm p-6 border-cyan-500/30 bg-[#090D1C]/90 shadow-2xl relative text-center">
+      
+      <div class="w-14 h-14 mx-auto mb-4 rounded-3xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/25">
+        <i data-lucide="lock" class="w-7 h-7 text-white"></i>
+      </div>
+
+      <div class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[10px] font-extrabold uppercase tracking-wider mb-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+        <span>Acesso Restrito</span>
+      </div>
+
+      <h2 class="text-xl font-black text-white tracking-tight">Fintech iFood Control</h2>
+      <p class="text-xs text-slate-400 mt-1 mb-5">
+        Este aplicativo é de uso exclusivo para entregadores autorizados. Digite sua chave de ativação para liberar.
+      </p>
+
+      <div class="space-y-3 mb-4 text-left">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Chave de Ativação / Convite</label>
+          <input 
+            type="text" 
+            id="activationKeyInput" 
+            placeholder="EX: CONECT2026" 
+            autocomplete="off"
+            class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm font-mono font-black text-center tracking-widest text-cyan-300 uppercase placeholder-slate-600 focus:border-cyan-400 focus:outline-none transition-all">
+        </div>
+      </div>
+
+      <button 
+        id="btnActivateApp" 
+        class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-white font-extrabold text-xs tracking-wider shadow-lg shadow-cyan-500/30 active:scale-95 transition-all flex items-center justify-center space-x-2">
+        <i data-lucide="key" class="w-4 h-4"></i>
+        <span>Desbloquear Aplicativo</span>
+      </button>
+
+      <div class="mt-4 pt-3 border-t border-white/10">
+        <p class="text-[11px] text-slate-500">
+          Não possui uma chave de acesso? Solicite a liberação com o administrador do sistema.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Mobile Container Wrapper (Max 480px para experiência app mobile nativa) -->
   <div class="relative z-10 w-full max-w-[480px] min-h-screen flex flex-col justify-between px-4 pt-4 pb-28">
 
@@ -803,6 +849,22 @@
             </a>
             <span class="text-[10px] text-slate-400 block mt-1.5">Instalação direta no Android sem navegador</span>
           </div>
+        </div>
+
+        <!-- Licença e Controle de Acesso -->
+        <div class="glass-card p-4 flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <span class="text-slate-400 text-[10px] uppercase font-bold block">Status da Licença</span>
+              <span class="font-bold text-emerald-300" id="licenseStatusLabel">Ativado</span>
+            </div>
+          </div>
+          <button id="btnRevokeLocalLicense" class="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 text-[10px] font-semibold active:scale-95 transition-all">
+            Trocar Chave
+          </button>
         </div>
 
       </section>

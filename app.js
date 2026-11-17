@@ -47,9 +47,111 @@
   const USERS_STORAGE_KEY = 'fintech_users_list_v1';
   const ACTIVE_USER_KEY = 'fintech_active_user_v1';
   const LEGACY_STORAGE_KEY = 'fintech_ifood_control_v1';
+  const LICENSE_STORAGE_KEY = 'fintech_license_key_v1';
+  const REMOTE_KEYS_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/chaves-autorizadas.json';
+  const FALLBACK_KEYS = ['CONECT2026', 'MICHAEL-VIP', 'IFOOD-PRO-01', 'IFOOD-PRO-02', 'VIP-ENTREGADOR'];
 
   let appState = loadState();
   let pendingPeakEntry = null;
+
+  // ==========================================
+  // CONTROLE DE ACESSO & LICENÇA (WHITELIST)
+  // ==========================================
+  async function fetchAuthorizedKeys() {
+    try {
+      const res = await fetch(REMOTE_KEYS_URL + '?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.chaves_ativas)) {
+          return data;
+        }
+      }
+    } catch (e) {
+      try {
+        const localRes = await fetch('./chaves-autorizadas.json');
+        if (localRes.ok) return await localRes.json();
+      } catch (err) {}
+    }
+    return {
+      master_key: 'CONECT2026',
+      chaves_ativas: FALLBACK_KEYS,
+    };
+  }
+
+  async function checkLicenseStatus() {
+    const activeKey = localStorage.getItem(LICENSE_STORAGE_KEY);
+    const screen = document.getElementById('activationScreen');
+    const label = document.getElementById('licenseStatusLabel');
+
+    if (!activeKey) {
+      if (screen) screen.classList.remove('hidden');
+      return false;
+    }
+
+    if (label) label.textContent = `Ativado (${activeKey})`;
+    if (screen) screen.classList.add('hidden');
+
+    if (navigator.onLine) {
+      try {
+        const data = await fetchAuthorizedKeys();
+        const upperKey = activeKey.toUpperCase().trim();
+        const isAuthorized = upperKey === data.master_key || (data.chaves_ativas || []).includes(upperKey);
+        if (!isAuthorized) {
+          localStorage.removeItem(LICENSE_STORAGE_KEY);
+          if (screen) screen.classList.remove('hidden');
+          showToast('Sua chave foi revogada pelo administrador!', '🔒');
+          return false;
+        }
+      } catch (e) {}
+    }
+    return true;
+  }
+
+  async function validateAndActivateKey(rawKey) {
+    if (!rawKey || !rawKey.trim()) {
+      showToast('Digite a chave de ativação!', '⚠️');
+      return;
+    }
+
+    const key = rawKey.toUpperCase().trim();
+    const btn = document.getElementById('btnActivateApp');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>Verificando chave...</span>';
+    }
+
+    const data = await fetchAuthorizedKeys();
+    const isAuthorized = key === data.master_key || (data.chaves_ativas || []).includes(key);
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="key" class="w-4 h-4"></i><span>Desbloquear Aplicativo</span>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    if (isAuthorized) {
+      localStorage.setItem(LICENSE_STORAGE_KEY, key);
+      const screen = document.getElementById('activationScreen');
+      if (screen) screen.classList.add('hidden');
+      const label = document.getElementById('licenseStatusLabel');
+      if (label) label.textContent = `Ativado (${key})`;
+      triggerHaptic(40);
+      showToast('Aplicativo desbloqueado com sucesso! Seja bem-vindo!', '🎉');
+      renderAll();
+    } else {
+      triggerHaptic(50);
+      showToast('Chave inválida ou não autorizada!', '❌');
+    }
+  }
+
+  function revokeLocalLicense() {
+    if (!confirm('Deseja desconectar a chave de acesso atual e bloquear o aplicativo?')) return;
+    localStorage.removeItem(LICENSE_STORAGE_KEY);
+    const screen = document.getElementById('activationScreen');
+    if (screen) screen.classList.remove('hidden');
+    triggerHaptic(20);
+    showToast('Chave desconectada. Digite uma nova chave.', '🔒');
+  }
 
   // ==========================================
   // GESTÃO MULTI-USUÁRIO & PERSISTÊNCIA
@@ -1429,6 +1531,26 @@
 
     const btnReset = document.getElementById('btnResetAll');
     if (btnReset) btnReset.addEventListener('click', resetAllData);
+
+    // Controle de Acesso e Licença
+    const btnActivateApp = document.getElementById('btnActivateApp');
+    const activationKeyInput = document.getElementById('activationKeyInput');
+    const btnRevokeLocalLicense = document.getElementById('btnRevokeLocalLicense');
+
+    if (btnActivateApp && activationKeyInput) {
+      btnActivateApp.addEventListener('click', () => {
+        validateAndActivateKey(activationKeyInput.value);
+      });
+      activationKeyInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          validateAndActivateKey(activationKeyInput.value);
+        }
+      });
+    }
+
+    if (btnRevokeLocalLicense) {
+      btnRevokeLocalLicense.addEventListener('click', revokeLocalLicense);
+    }
   }
 
   // ==========================================
@@ -1455,6 +1577,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     initEvents();
     renderAll();
+    checkLicenseStatus();
     registerServiceWorker();
   });
 

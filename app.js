@@ -154,6 +154,103 @@
   }
 
   // ==========================================
+  // SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (GITHUB)
+  // ==========================================
+  const CURRENT_APP_VERSION = '1.0.0';
+  const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/version.json';
+  let pendingUpdateData = null;
+
+  async function checkForAppUpdates(silent = true) {
+    const iconCheck = document.getElementById('iconCheckUpdate');
+    if (!silent && iconCheck) {
+      iconCheck.classList.add('animate-spin');
+    }
+
+    try {
+      const res = await fetch(`${VERSION_MANIFEST_URL}?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.version) {
+          const isNewer = compareVersions(data.version, CURRENT_APP_VERSION) > 0;
+          if (isNewer) {
+            pendingUpdateData = data;
+            showUpdateModal(data);
+            triggerHaptic(40);
+            return true;
+          } else if (!silent) {
+            showToast(`Seu app já está na versão mais recente (v${CURRENT_APP_VERSION})!`, '✅');
+          }
+        }
+      }
+    } catch (e) {
+      if (!silent) {
+        showToast('Não foi possível verificar atualizações no momento.', '⚠️');
+      }
+    } finally {
+      if (!silent && iconCheck) {
+        iconCheck.classList.remove('animate-spin');
+      }
+    }
+    return false;
+  }
+
+  function compareVersions(v1, v2) {
+    const p1 = (v1 || '0').split('.').map(Number);
+    const p2 = (v2 || '0').split('.').map(Number);
+    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+      const num1 = p1[i] || 0;
+      const num2 = p2[i] || 0;
+      if (num1 > num2) return 1;
+      if (num1 < num2) return -1;
+    }
+    return 0;
+  }
+
+  function showUpdateModal(data) {
+    const modal = document.getElementById('modalUpdateAvailable');
+    if (!modal) return;
+
+    const badge = document.getElementById('updateVersionBadge');
+    const notes = document.getElementById('updateReleaseNotes');
+    const apkBtn = document.getElementById('btnDownloadNewApk');
+
+    if (badge) badge.textContent = `v${data.version}`;
+    if (notes && data.releaseNotes) notes.textContent = data.releaseNotes;
+    if (apkBtn && data.apkDownloadUrl) apkBtn.href = data.apkDownloadUrl;
+
+    modal.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  async function applyAppUpdate() {
+    showToast('Atualizando aplicativo...', '🚀');
+    triggerHaptic(30);
+
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (e) {}
+    }
+
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          if (reg.waiting) {
+            reg.waiting.postMessage('SKIP_WAITING');
+          }
+          await reg.update();
+        }
+      } catch (e) {}
+    }
+
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 500);
+  }
+
+  // ==========================================
   // GESTÃO MULTI-USUÁRIO & PERSISTÊNCIA
   // ==========================================
   function getUsersList() {
@@ -1551,6 +1648,28 @@
     if (btnRevokeLocalLicense) {
       btnRevokeLocalLicense.addEventListener('click', revokeLocalLicense);
     }
+
+    // Auto-Update Events
+    const btnManualCheckUpdate = document.getElementById('btnManualCheckUpdate');
+    const btnApplyUpdateNow = document.getElementById('btnApplyUpdateNow');
+    const btnDismissUpdate = document.getElementById('btnDismissUpdate');
+    const modalUpdateAvailable = document.getElementById('modalUpdateAvailable');
+
+    if (btnManualCheckUpdate) {
+      btnManualCheckUpdate.addEventListener('click', () => {
+        checkForAppUpdates(false);
+      });
+    }
+
+    if (btnApplyUpdateNow) {
+      btnApplyUpdateNow.addEventListener('click', applyAppUpdate);
+    }
+
+    if (btnDismissUpdate && modalUpdateAvailable) {
+      btnDismissUpdate.addEventListener('click', () => {
+        modalUpdateAvailable.classList.add('hidden');
+      });
+    }
   }
 
   // ==========================================
@@ -1563,6 +1682,17 @@
           .register('./sw.js')
           .then((reg) => {
             console.log('PWA ServiceWorker registrado com sucesso:', reg.scope);
+            // Detecta quando um novo service worker é encontrado
+            reg.onupdatefound = () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.onstatechange = () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    checkForAppUpdates(true);
+                  }
+                };
+              }
+            };
           })
           .catch((err) => {
             console.log('Falha no registro do ServiceWorker:', err);
@@ -1579,6 +1709,10 @@
     renderAll();
     checkLicenseStatus();
     registerServiceWorker();
+
+    // Verificação de atualizações no GitHub ao abrir e a cada 15 minutos
+    setTimeout(() => checkForAppUpdates(true), 2000);
+    setInterval(() => checkForAppUpdates(true), 15 * 60 * 1000);
   });
 
 })();

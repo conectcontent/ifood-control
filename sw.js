@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ifood-control-v1';
+const CACHE_NAME = 'ifood-control-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,6 +8,12 @@ const ASSETS_TO_CACHE = [
   './icon-192.png',
   './icon-512.png'
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -36,13 +42,23 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignora chamadas que não sejam GET ou sejam extensões do Chrome
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // version.json e chaves-autorizadas.json são SEMPRE Network-First para garantir atualizações em tempo real
+  if (url.pathname.includes('version.json') || url.pathname.includes('chaves-autorizadas.json')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => response)
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Tenta atualizar em background para recursos remotos/locais
         fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {

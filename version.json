@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "minRequiredVersion": "1.0.0",
+  "releaseDate": "2026-11-17",
+  "releaseNotes": "Versão oficial Fintech iFood Control com Bento Grid, sistema multi-usuário, controle de acesso e atualizações automáticas via GitHub.",
+  "apkDownloadUrl": "https://github.com/conectcontent/ifood-control/releases/latest/download/Fintech-iFood-Control.apk",
+  "mandatory": false
+}

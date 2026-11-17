@@ -33,13 +33,7 @@
       mode: 100, // 100, 150 ou 283 blocos
       checked: {}, // { [index]: true }
     },
-    debts: [
-      { id: 1, title: 'Internet / Spotify', value: 84.00, months: ['jan', 'fev', 'mar', 'abr'], paidMonths: [] },
-      { id: 2, title: 'Crédito', value: 173.00, months: ['jan', 'fev', 'mar', 'abr'], paidMonths: [] },
-      { id: 3, title: 'Cartão Nubank', value: 320.00, months: ['jan', 'fev', 'mar', 'abr'], paidMonths: [] },
-      { id: 4, title: 'Empréstimo Nubank', value: 215.00, months: ['jan', 'fev', 'mar', 'abr'], paidMonths: [] },
-      { id: 5, title: 'Nova Compra Parcelada', value: 70.38, months: ['fev', 'mar', 'abr'], paidMonths: [], isHighlight: true },
-    ],
+    debts: [],
     selectedDebtMonth: 'fev',
     privacyMode: false,
   };
@@ -156,7 +150,7 @@
   // ==========================================
   // SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (GITHUB)
   // ==========================================
-  const CURRENT_APP_VERSION = '1.0.0';
+  const CURRENT_APP_VERSION = '1.1.0';
   const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/version.json';
   let pendingUpdateData = null;
 
@@ -293,7 +287,17 @@
     try {
       const activeId = getActiveUserId();
       const userKey = getStorageKeyForUser(activeId);
-      const saved = localStorage.getItem(userKey) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      let saved = localStorage.getItem(userKey);
+
+      // Migração apenas para o perfil inicial 'user_1' se nunca salvou nada antes
+      if (!saved && activeId === 'user_1') {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) {
+          saved = legacy;
+          localStorage.setItem(userKey, legacy);
+        }
+      }
+
       if (saved) {
         const parsed = JSON.parse(saved);
         return deepMerge(DEFAULT_STATE, parsed);
@@ -344,7 +348,22 @@
     saveState();
     localStorage.setItem(ACTIVE_USER_KEY, newId);
 
+    // Inicializa o estado TOTALMENTE ZERADO
     appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.debts = [];
+    appState.entries = [];
+    appState.expenses = [];
+    appState.turnCount = 0;
+    appState.totalAccumulatedMonth = 0;
+    appState.totalPeakExtra = 0;
+    appState.challenge = { mode: 100, checked: {} };
+    appState.categories = {
+      exterior: { accumulated: 0, peakExtra: 0 },
+      contas: { accumulated: 0, spent: 0 },
+      reserva: { accumulated: 0, peakExtra: 0 },
+      oficina: { accumulated: 0, spent: 0 },
+    };
+
     const meta = parseFloat(initialMeta);
     if (!isNaN(meta) && meta > 0) {
       const ratio = meta / 2600;
@@ -356,7 +375,7 @@
     saveState();
     renderAll();
     triggerHaptic(35);
-    showToast(`Usuário "${newUser.name}" cadastrado com sucesso!`, '🎉');
+    showToast(`Perfil "${newUser.name}" cadastrado 100% zerado!`, '🎉');
   }
 
   function deleteUser(userId) {
@@ -582,6 +601,31 @@
     showToast(`Gasto de ${formatBRL(value)} registrado em Contas!`, '📉');
   }
 
+  function registerContasDeposit(desc, val) {
+    const value = parseFloat(val);
+    if (isNaN(value) || value <= 0) {
+      showToast('Valor de entrada inválido!', '⚠️');
+      return;
+    }
+    appState.categories.contas.accumulated += value;
+    appState.totalAccumulatedMonth += value;
+    appState.entries.unshift({
+      id: Date.now(),
+      date: new Date().toISOString(),
+      type: 'deposit_contas',
+      desc: desc || 'Aporte em Contas',
+      total: value,
+      base: value,
+      surplus: 0,
+      surplusChoice: 'nenhum',
+      split: { exterior: 0, contas: value, reserva: 0, oficina: 0 },
+    });
+    saveState();
+    renderAll();
+    triggerHaptic(20);
+    showToast(`Adicionado ${formatBRL(value)} ao saldo de Contas!`, '💰');
+  }
+
   function registerOficinaMaintenance(desc, val) {
     const value = parseFloat(val);
     if (isNaN(value) || value <= 0) {
@@ -761,6 +805,66 @@
 
     const saldoOficina = Math.max(0, cats.oficina.accumulated - cats.oficina.spent);
     updateBentoCard('oficina', saldoOficina, settings.metaOficina, null);
+
+    updateDashboardDebtAlert();
+  }
+
+  function updateDashboardDebtAlert() {
+    const cardEl = document.getElementById('dashboardDebtAlertCard');
+    const titleEl = document.getElementById('dashboardDebtAlertTitle');
+    const badgeEl = document.getElementById('dashboardDebtAlertBadge');
+    const descEl = document.getElementById('dashboardDebtAlertDesc');
+    const iconWrapper = document.getElementById('dashboardDebtAlertIcon');
+    const btnText = document.getElementById('dashboardDebtAlertBtnText');
+    if (!cardEl || !titleEl) return;
+
+    const currentMonth = appState.selectedDebtMonth || 'fev';
+    const monthNames = { jan: 'Janeiro', fev: 'Fevereiro', mar: 'Março', abr: 'Abril' };
+    const debts = appState.debts || [];
+    const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
+    const pendingDebts = activeDebts.filter((d) => !(d.paidMonths || []).includes(currentMonth));
+
+    if (debts.length === 0) {
+      cardEl.className = 'glass-card p-4 border-emerald-500/25 bg-gradient-to-r from-emerald-950/20 via-slate-900/40 to-slate-900/30 flex items-center justify-between';
+      if (iconWrapper) {
+        iconWrapper.className = 'w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0';
+        iconWrapper.innerHTML = '<i data-lucide="shield-check" class="w-5 h-5"></i>';
+      }
+      titleEl.textContent = 'Contas Zeradas';
+      if (badgeEl) {
+        badgeEl.textContent = 'Em Dia';
+        badgeEl.className = 'text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      }
+      if (descEl) descEl.textContent = 'Nenhum compromisso cadastrado neste perfil';
+      if (btnText) btnText.textContent = '+ Colocar';
+    } else if (pendingDebts.length === 0) {
+      cardEl.className = 'glass-card p-4 border-emerald-500/30 bg-gradient-to-r from-emerald-950/30 to-teal-950/20 flex items-center justify-between';
+      if (iconWrapper) {
+        iconWrapper.className = 'w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0';
+        iconWrapper.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i>';
+      }
+      titleEl.textContent = 'Tudo Liquidado!';
+      if (badgeEl) {
+        badgeEl.textContent = monthNames[currentMonth];
+        badgeEl.className = 'text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      }
+      if (descEl) descEl.textContent = `Todas as contas de ${monthNames[currentMonth]} estão pagas`;
+      if (btnText) btnText.textContent = 'Ver';
+    } else {
+      const nextDebt = pendingDebts[0];
+      cardEl.className = 'glass-card p-4 border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 to-purple-950/20 flex items-center justify-between';
+      if (iconWrapper) {
+        iconWrapper.className = 'w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0';
+        iconWrapper.innerHTML = '<i data-lucide="calendar-clock" class="w-5 h-5"></i>';
+      }
+      titleEl.textContent = nextDebt.title;
+      if (badgeEl) {
+        badgeEl.textContent = `${monthNames[currentMonth]} • Pendente`;
+        badgeEl.className = 'text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      }
+      if (descEl) descEl.innerHTML = `<span class="tabular-numbers font-bold text-white">${formatBRL(nextDebt.value)}</span> • ${pendingDebts.length} conta(s) pendente(s)`;
+      if (btnText) btnText.textContent = 'Ver';
+    }
   }
 
   function updateBentoCard(catKey, currentVal, targetVal, extraPeak) {
@@ -1050,7 +1154,7 @@
     if (monthLabelEl) monthLabelEl.textContent = `Mês: ${monthNames[currentMonth] || currentMonth}`;
 
     const debts = appState.debts || [];
-    const activeDebts = debts.filter((d) => d.months.includes(currentMonth));
+    const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
 
     let totalMonth = 0;
     let pendingMonth = 0;
@@ -1059,83 +1163,138 @@
 
     if (activeDebts.length === 0) {
       listEl.innerHTML = `
-        <div class="py-6 text-center text-slate-500 text-xs">
-          Nenhum compromisso cadastrado para ${monthNames[currentMonth]}.
-        </div>
-      `;
-    }
-
-    activeDebts.forEach((debt) => {
-      const isPaid = (debt.paidMonths || []).includes(currentMonth);
-      totalMonth += debt.value;
-      if (!isPaid) pendingMonth += debt.value;
-
-      const card = document.createElement('div');
-      card.className = `p-3 rounded-2xl border flex items-center justify-between text-xs transition-all ${
-        isPaid
-          ? 'bg-emerald-950/20 border-emerald-500/20 text-slate-400'
-          : debt.isHighlight
-          ? 'bg-cyan-950/25 border-cyan-500/40 text-white'
-          : 'bg-white/5 border-white/10 text-white'
-      }`;
-
-      card.innerHTML = `
-        <div class="flex items-center space-x-3">
-          <button class="btn-toggle-paid w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
-            isPaid
-              ? 'bg-emerald-500 border-emerald-400 text-black font-black'
-              : 'border-white/20 bg-white/5 text-transparent hover:border-emerald-400'
-          }" data-id="${debt.id}">
-            ✓
+        <div class="py-8 text-center text-slate-500 text-xs flex flex-col items-center justify-center space-y-2">
+          <i data-lucide="check-circle-2" class="w-8 h-8 text-emerald-500/40"></i>
+          <span>Nenhum compromisso cadastrado para ${monthNames[currentMonth]}.</span>
+          <button id="btnEmptyAddDebt" class="mt-2 px-3.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-300 font-bold text-[11px] flex items-center space-x-1.5 active:scale-95 transition-all">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>+ Colocar Conta</span>
           </button>
-          <div>
-            <div class="flex items-center space-x-1.5">
-              <span class="font-bold ${isPaid ? 'line-through text-slate-400' : 'text-white'}">${debt.title}</span>
-              ${debt.isHighlight ? '<span class="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase">Novo</span>' : ''}
-            </div>
-            <span class="text-[10px] text-slate-400 tabular-numbers financial-val">${formatBRL(debt.value)}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center space-x-2">
-          <span class="text-[10px] font-bold ${isPaid ? 'text-emerald-400' : 'text-amber-400'}">
-            ${isPaid ? 'Liquidado' : 'Pendente'}
-          </span>
-          ${
-            !isPaid
-              ? `<button class="btn-pay-from-contas px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold active:scale-95 transition-all" data-id="${debt.id}">
-                  Abater Contas
-                </button>`
-              : ''
-          }
         </div>
       `;
-
-      card.querySelector('.btn-toggle-paid').addEventListener('click', () => {
-        toggleDebtPaid(debt.id, currentMonth);
-      });
-
-      const btnPay = card.querySelector('.btn-pay-from-contas');
-      if (btnPay) {
-        btnPay.addEventListener('click', () => {
-          payDebtFromContas(debt, currentMonth);
+      const btnEmptyAdd = listEl.querySelector('#btnEmptyAddDebt');
+      if (btnEmptyAdd) {
+        btnEmptyAdd.addEventListener('click', () => {
+          const modalNewDebt = document.getElementById('modalNewDebt');
+          if (modalNewDebt) {
+            document.getElementById('newDebtTitle').value = '';
+            document.getElementById('newDebtValue').value = '';
+            modalNewDebt.classList.remove('hidden');
+          }
         });
       }
+    } else {
+      activeDebts.forEach((debt) => {
+        const isPaid = (debt.paidMonths || []).includes(currentMonth);
+        totalMonth += debt.value;
+        if (!isPaid) pendingMonth += debt.value;
 
-      listEl.appendChild(card);
-    });
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-2xl border flex items-center justify-between text-xs transition-all ${
+          isPaid
+            ? 'bg-emerald-950/20 border-emerald-500/20 text-slate-400'
+            : debt.isHighlight
+            ? 'bg-cyan-950/25 border-cyan-500/40 text-white'
+            : 'bg-white/5 border-white/10 text-white'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <button class="btn-toggle-paid w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
+              isPaid
+                ? 'bg-emerald-500 border-emerald-400 text-black font-black'
+                : 'border-white/20 bg-white/5 text-transparent hover:border-emerald-400'
+            }" data-id="${debt.id}" title="${isPaid ? 'Marcar como pendente' : 'Marcar como pago'}">
+              ✓
+            </button>
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <span class="font-bold ${isPaid ? 'line-through text-slate-400' : 'text-white'}">${debt.title}</span>
+                ${debt.isHighlight ? '<span class="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase">Destaque</span>' : ''}
+              </div>
+              <span class="text-[10px] text-slate-400 tabular-numbers financial-val">${formatBRL(debt.value)}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] font-bold ${isPaid ? 'text-emerald-400' : 'text-amber-400'}">
+              ${isPaid ? 'Liquidado' : 'Pendente'}
+            </span>
+            ${
+              !isPaid
+                ? `<button class="btn-pay-from-contas px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold active:scale-95 transition-all" data-id="${debt.id}">
+                    Abater
+                  </button>`
+                : ''
+            }
+            <button class="btn-del-debt p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/20 active:scale-90 transition-all" data-id="${debt.id}" title="Tirar/Excluir Conta">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+
+        card.querySelector('.btn-toggle-paid').addEventListener('click', () => {
+          toggleDebtPaid(debt.id, currentMonth);
+        });
+
+        const btnPay = card.querySelector('.btn-pay-from-contas');
+        if (btnPay) {
+          btnPay.addEventListener('click', () => {
+            payDebtFromContas(debt, currentMonth);
+          });
+        }
+
+        const btnDel = card.querySelector('.btn-del-debt');
+        if (btnDel) {
+          btnDel.addEventListener('click', () => {
+            deleteDebt(debt.id);
+          });
+        }
+
+        listEl.appendChild(card);
+      });
+    }
 
     const totalEl = document.getElementById('monthTotalDebts');
     const pendingEl = document.getElementById('monthPendingDebts');
     if (totalEl) totalEl.textContent = formatBRL(totalMonth);
     if (pendingEl) pendingEl.textContent = formatBRL(pendingMonth);
 
-    const highlightStatus = document.getElementById('highlightPurchaseStatus');
-    if (highlightStatus) {
-      const purchaseFev = (appState.debts || []).find((d) => d.id === 5);
-      const isFevPaid = purchaseFev && (purchaseFev.paidMonths || []).includes('fev');
-      highlightStatus.textContent = isFevPaid ? '✅ Liquidada em Fev' : '⏳ Pendente para Fev';
-      highlightStatus.className = isFevPaid ? 'font-bold text-emerald-400' : 'font-bold text-cyan-400';
+    renderHighlightBanner(currentMonth, activeDebts);
+  }
+
+  function renderHighlightBanner(currentMonth, activeDebts) {
+    const highlightCard = document.getElementById('highlightDebtCard');
+    if (!highlightCard) return;
+
+    if (!activeDebts || activeDebts.length === 0) {
+      highlightCard.classList.add('hidden');
+      return;
+    }
+
+    const targetDebt = activeDebts.find((d) => d.isHighlight) || activeDebts.find((d) => !(d.paidMonths || []).includes(currentMonth)) || activeDebts[0];
+    if (!targetDebt) {
+      highlightCard.classList.add('hidden');
+      return;
+    }
+
+    highlightCard.classList.remove('hidden');
+
+    const titleEl = document.getElementById('highlightDebtTitle');
+    const badgeEl = document.getElementById('highlightDebtBadge');
+    const subtitleEl = document.getElementById('highlightDebtSubtitle');
+    const scheduleEl = document.getElementById('highlightDebtSchedule');
+    const statusEl = document.getElementById('highlightPurchaseStatus');
+
+    if (titleEl) titleEl.textContent = targetDebt.title;
+    if (badgeEl) badgeEl.textContent = `${(targetDebt.months || []).length}x parcelas`;
+    if (subtitleEl) subtitleEl.innerHTML = `Parcela mensal: <strong class="text-white tabular-numbers financial-val">${formatBRL(targetDebt.value)}</strong>`;
+    if (scheduleEl) scheduleEl.textContent = `Cronograma: ${(targetDebt.months || []).map((m) => m.toUpperCase()).join(' / ')}`;
+
+    const isPaid = (targetDebt.paidMonths || []).includes(currentMonth);
+    if (statusEl) {
+      statusEl.textContent = isPaid ? `✅ Liquidada em ${currentMonth.toUpperCase()}` : `⏳ Pendente para ${currentMonth.toUpperCase()}`;
+      statusEl.className = isPaid ? 'font-bold text-emerald-400' : 'font-bold text-cyan-400';
     }
   }
 
@@ -1192,8 +1351,36 @@
 
     saveState();
     renderDebtsSection();
+    renderDashboardBento();
     triggerHaptic(20);
-    showToast(`Dívida "${title}" adicionada!`, '💳');
+    showToast(`Conta "${title}" cadastrada!`, '💳');
+  }
+
+  function deleteDebt(debtId) {
+    const debt = (appState.debts || []).find((d) => d.id === debtId);
+    const title = debt ? debt.title : 'esta conta';
+    if (!confirm(`Deseja tirar "${title}" dos seus compromissos?`)) return;
+
+    appState.debts = (appState.debts || []).filter((d) => d.id !== debtId);
+    saveState();
+    renderDebtsSection();
+    renderDashboardBento();
+    triggerHaptic(20);
+    showToast(`Conta "${title}" removida com sucesso!`, '🗑️');
+  }
+
+  function clearAllDebts() {
+    if (!appState.debts || appState.debts.length === 0) {
+      showToast('Não há contas cadastradas para remover.', 'ℹ️');
+      return;
+    }
+    if (!confirm('Deseja apagar TODAS as contas cadastradas deste perfil? O perfil ficará totalmente zerado.')) return;
+    appState.debts = [];
+    saveState();
+    renderDebtsSection();
+    renderDashboardBento();
+    triggerHaptic(25);
+    showToast('Todas as contas foram removidas. Perfil zerado!', '🧹');
   }
 
   function renderSettingsForm() {
@@ -1327,12 +1514,20 @@
   }
 
   function resetAllData() {
-    if (!confirm('ATENÇÃO: Deseja apagar todos os lançamentos do perfil atual?')) return;
+    if (!confirm('ATENÇÃO: Deseja apagar todos os lançamentos do perfil atual? O perfil ficará totalmente zerado.')) return;
     const activeId = getActiveUserId();
     localStorage.removeItem(getStorageKeyForUser(activeId));
     appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.debts = [];
+    appState.entries = [];
+    appState.expenses = [];
+    appState.turnCount = 0;
+    appState.totalAccumulatedMonth = 0;
+    appState.totalPeakExtra = 0;
+    appState.challenge = { mode: 100, checked: {} };
+    saveState();
     renderAll();
-    showToast('Dados do usuário atual foram resetados.', '🧹');
+    showToast('Dados do usuário atual foram resetados (100% zerado).', '🧹');
   }
 
   function togglePrivacy() {
@@ -1465,6 +1660,15 @@
     const btnGoToDebts = document.getElementById('btnGoToDebts');
     if (btnGoToDebts) {
       btnGoToDebts.addEventListener('click', () => {
+        if (!appState.debts || appState.debts.length === 0) {
+          const modalNewDebt = document.getElementById('modalNewDebt');
+          if (modalNewDebt) {
+            document.getElementById('newDebtTitle').value = '';
+            document.getElementById('newDebtValue').value = '';
+            modalNewDebt.classList.remove('hidden');
+            return;
+          }
+        }
         appState.selectedDebtMonth = 'fev';
         switchTab('tab-dividas');
       });
@@ -1519,10 +1723,86 @@
       btnCancelPeak.addEventListener('click', closePeakModal);
     }
 
+    // Colocar em Contas (Modal & Opções)
+    const btnQuickAddConta = document.getElementById('btnQuickAddConta');
+    const modalColocarMenu = document.getElementById('modalColocarMenu');
+    const btnCloseColocarMenu = document.getElementById('btnCloseColocarMenu');
+    const btnOptionAddDebt = document.getElementById('btnOptionAddDebt');
+    const btnOptionAddBalance = document.getElementById('btnOptionAddBalance');
+
+    if (btnQuickAddConta && modalColocarMenu) {
+      btnQuickAddConta.addEventListener('click', () => {
+        modalColocarMenu.classList.remove('hidden');
+        triggerHaptic(15);
+      });
+    }
+    if (btnCloseColocarMenu && modalColocarMenu) {
+      btnCloseColocarMenu.addEventListener('click', () => modalColocarMenu.classList.add('hidden'));
+    }
+
+    // Modal Saldo Avulso em Contas
+    const modalAddContasBalance = document.getElementById('modalAddContasBalance');
+    const btnCancelAddBalance = document.getElementById('btnCancelAddBalance');
+    const btnConfirmAddBalance = document.getElementById('btnConfirmAddBalance');
+
+    if (btnOptionAddBalance && modalAddContasBalance) {
+      btnOptionAddBalance.addEventListener('click', () => {
+        if (modalColocarMenu) modalColocarMenu.classList.add('hidden');
+        document.getElementById('addContasBalanceDesc').value = '';
+        document.getElementById('addContasBalanceValue').value = '';
+        modalAddContasBalance.classList.remove('hidden');
+        triggerHaptic(15);
+      });
+    }
+    if (btnCancelAddBalance && modalAddContasBalance) {
+      btnCancelAddBalance.addEventListener('click', () => modalAddContasBalance.classList.add('hidden'));
+    }
+    if (btnConfirmAddBalance && modalAddContasBalance) {
+      btnConfirmAddBalance.addEventListener('click', () => {
+        const desc = document.getElementById('addContasBalanceDesc').value;
+        const val = document.getElementById('addContasBalanceValue').value;
+        registerContasDeposit(desc, val);
+        modalAddContasBalance.classList.add('hidden');
+      });
+    }
+
+    // Tirar de Contas (Modal & Opções)
+    const btnQuickRemoveConta = document.getElementById('btnQuickRemoveConta');
+    const modalTirarMenu = document.getElementById('modalTirarMenu');
+    const btnCloseTirarMenu = document.getElementById('btnCloseTirarMenu');
+    const btnOptionExpenseMoney = document.getElementById('btnOptionExpenseMoney');
+    const btnOptionManageDebts = document.getElementById('btnOptionManageDebts');
+
+    if (btnQuickRemoveConta && modalTirarMenu) {
+      btnQuickRemoveConta.addEventListener('click', () => {
+        modalTirarMenu.classList.remove('hidden');
+        triggerHaptic(15);
+      });
+    }
+    if (btnCloseTirarMenu && modalTirarMenu) {
+      btnCloseTirarMenu.addEventListener('click', () => modalTirarMenu.classList.add('hidden'));
+    }
+    if (btnOptionManageDebts) {
+      btnOptionManageDebts.addEventListener('click', () => {
+        if (modalTirarMenu) modalTirarMenu.classList.add('hidden');
+        switchTab('tab-dividas');
+      });
+    }
+
     const btnQuickExpense = document.getElementById('btnQuickExpense');
     const modalExpense = document.getElementById('modalExpense');
     const btnCancelExpense = document.getElementById('btnCancelExpense');
     const btnConfirmExpense = document.getElementById('btnConfirmExpense');
+
+    if (btnOptionExpenseMoney && modalExpense) {
+      btnOptionExpenseMoney.addEventListener('click', () => {
+        if (modalTirarMenu) modalTirarMenu.classList.add('hidden');
+        document.getElementById('expenseDesc').value = '';
+        document.getElementById('expenseValue').value = '';
+        modalExpense.classList.remove('hidden');
+        triggerHaptic(15);
+      });
+    }
 
     if (btnQuickExpense && modalExpense) {
       btnQuickExpense.addEventListener('click', () => {
@@ -1531,7 +1811,11 @@
         modalExpense.classList.remove('hidden');
         triggerHaptic(15);
       });
+    }
+    if (btnCancelExpense && modalExpense) {
       btnCancelExpense.addEventListener('click', () => modalExpense.classList.add('hidden'));
+    }
+    if (btnConfirmExpense && modalExpense) {
       btnConfirmExpense.addEventListener('click', () => {
         const desc = document.getElementById('expenseDesc').value;
         const val = document.getElementById('expenseValue').value;
@@ -1585,12 +1869,28 @@
     const modalNewDebt = document.getElementById('modalNewDebt');
     const btnCancelNewDebt = document.getElementById('btnCancelNewDebt');
     const btnConfirmNewDebt = document.getElementById('btnConfirmNewDebt');
+    const btnClearAllDebts = document.getElementById('btnClearAllDebts');
+
+    if (btnOptionAddDebt && modalNewDebt) {
+      btnOptionAddDebt.addEventListener('click', () => {
+        if (modalColocarMenu) modalColocarMenu.classList.add('hidden');
+        document.getElementById('newDebtTitle').value = '';
+        document.getElementById('newDebtValue').value = '';
+        modalNewDebt.classList.remove('hidden');
+        triggerHaptic(15);
+      });
+    }
+
+    if (btnClearAllDebts) {
+      btnClearAllDebts.addEventListener('click', clearAllDebts);
+    }
 
     if (btnNewDebt && modalNewDebt) {
       btnNewDebt.addEventListener('click', () => {
         document.getElementById('newDebtTitle').value = '';
         document.getElementById('newDebtValue').value = '';
         modalNewDebt.classList.remove('hidden');
+        triggerHaptic(15);
       });
       btnCancelNewDebt.addEventListener('click', () => modalNewDebt.classList.add('hidden'));
       btnConfirmNewDebt.addEventListener('click', () => {

@@ -411,11 +411,17 @@
                 <span>Teto: R$ 1.450</span>
               </div>
 
-              <!-- Botão Rápido "- Registrar Gasto" -->
-              <button id="btnQuickExpense" class="mt-2.5 w-full py-1.5 px-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 active:scale-95 text-[11px] font-bold flex items-center justify-center space-x-1 transition-all">
-                <i data-lucide="minus-circle" class="w-3.5 h-3.5"></i>
-                <span>- Registrar Gasto</span>
-              </button>
+              <!-- Botões Colocar e Tirar Contas -->
+              <div class="grid grid-cols-2 gap-1.5 mt-2.5">
+                <button id="btnQuickAddConta" class="py-1.5 px-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 active:scale-95 text-[11px] font-bold flex items-center justify-center space-x-1 transition-all" title="Colocar Conta ou Saldo">
+                  <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                  <span>+ Colocar</span>
+                </button>
+                <button id="btnQuickRemoveConta" class="py-1.5 px-2 rounded-xl bg-rose-500/15 border border-rose-500/25 text-rose-300 hover:bg-rose-500/25 active:scale-95 text-[11px] font-bold flex items-center justify-center space-x-1 transition-all" title="Tirar Gasto ou Conta">
+                  <i data-lucide="minus-circle" class="w-3.5 h-3.5"></i>
+                  <span>- Tirar</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -480,22 +486,22 @@
 
         </div>
 
-        <!-- Card Alerta Dívida / Destaque de Fevereiro -->
-        <div class="glass-card p-4 border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 to-purple-950/20 flex items-center justify-between">
+        <!-- Card Alerta Dívida / Destaque de Contas (Dinâmico) -->
+        <div id="dashboardDebtAlertCard" class="glass-card p-4 border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 to-purple-950/20 flex items-center justify-between">
           <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <div id="dashboardDebtAlertIcon" class="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
               <i data-lucide="calendar-clock" class="w-5 h-5"></i>
             </div>
             <div>
               <div class="flex items-center space-x-1.5">
-                <span class="text-xs font-bold text-white">Nova Compra Parcelada</span>
-                <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200">Fev/2026</span>
+                <span id="dashboardDebtAlertTitle" class="text-xs font-bold text-white">Compromissos</span>
+                <span id="dashboardDebtAlertBadge" class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200">Fev/2026</span>
               </div>
-              <p class="text-[11px] text-slate-300">R$ 70,38/mês • Compromisso fixado</p>
+              <p id="dashboardDebtAlertDesc" class="text-[11px] text-slate-300">Carregando compromissos...</p>
             </div>
           </div>
-          <button id="btnGoToDebts" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white border border-white/10 flex items-center space-x-1">
-            <span>Ver</span>
+          <button id="btnGoToDebts" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-white border border-white/10 flex items-center space-x-1 shrink-0">
+            <span id="dashboardDebtAlertBtnText">Ver</span>
             <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -667,10 +673,15 @@
               <span class="text-[10px] font-extrabold tracking-wider uppercase text-emerald-400">Compromissos Financeiros</span>
               <h2 class="text-base font-bold text-white">Dívidas & Parcelamentos</h2>
             </div>
-            <button id="btnNewDebtModal" class="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white border border-white/10 text-xs flex items-center space-x-1">
-              <i data-lucide="plus" class="w-4 h-4"></i>
-              <span>Novo</span>
-            </button>
+            <div class="flex items-center space-x-1.5">
+              <button id="btnNewDebtModal" class="py-1.5 px-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white border border-indigo-500/30 text-xs font-bold flex items-center space-x-1 transition-all">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>+ Colocar Conta</span>
+              </button>
+              <button id="btnClearAllDebts" class="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs flex items-center transition-all" title="Tirar/Limpar todas as contas">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Seletor de Mês (Jan a Abr) -->
@@ -694,25 +705,25 @@
           </div>
         </div>
 
-        <!-- CARD DESTAQUE: NOVA COMPRA PARCELADA (FEVEREIRO) -->
-        <div class="glass-card p-4 border-cyan-500/40 bg-gradient-to-br from-cyan-950/20 via-slate-900/40 to-purple-950/20 relative overflow-hidden">
+        <!-- CARD DESTAQUE DE COMPROMISSO DO MÊS (DINÂMICO) -->
+        <div id="highlightDebtCard" class="glass-card p-4 border-cyan-500/40 bg-gradient-to-br from-cyan-950/20 via-slate-900/40 to-purple-950/20 relative overflow-hidden hidden">
           <div class="flex items-start justify-between">
             <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
-                <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+              <div class="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 shrink-0">
+                <i data-lucide="receipt" class="w-5 h-5"></i>
               </div>
               <div>
                 <div class="flex items-center space-x-2">
-                  <h4 class="text-sm font-bold text-white">Nova Compra Parcelada</h4>
-                  <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Inicia em Fev</span>
+                  <h4 class="text-sm font-bold text-white" id="highlightDebtTitle">Conta em Destaque</h4>
+                  <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" id="highlightDebtBadge">Fevereiro</span>
                 </div>
-                <p class="text-xs text-slate-300">Parcela mensal: <strong class="text-white tabular-numbers financial-val">R$ 70,38</strong></p>
+                <p class="text-xs text-slate-300" id="highlightDebtSubtitle">Valor: <strong class="text-white tabular-numbers financial-val" id="highlightDebtValue">R$ 0,00</strong></p>
               </div>
             </div>
           </div>
           <div class="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs">
-            <span class="text-[11px] text-slate-400">Cronograma: Fev / Mar / Abr</span>
-            <span id="highlightPurchaseStatus" class="font-bold text-cyan-400">Programada para Fev</span>
+            <span class="text-[11px] text-slate-400" id="highlightDebtSchedule">Meses ativos</span>
+            <span id="highlightPurchaseStatus" class="font-bold text-cyan-400">Pendente</span>
           </div>
         </div>
 
@@ -1033,6 +1044,138 @@
   </div>
 
   <!-- ========================================== -->
+  <!-- MODAL: MENU COLOCAR (CONTAS OU SALDO)      -->
+  <!-- ========================================== -->
+  <div id="modalColocarMenu" class="fixed inset-0 z-50 hidden flex items-center justify-center px-4 glass-modal-backdrop">
+    <div class="glass-card w-full max-w-sm p-6 border-emerald-500/30 bg-[#090D1C]/95 shadow-2xl relative">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">Minhas Contas</span>
+            <h3 class="text-sm font-bold text-white">Colocar em Contas</h3>
+          </div>
+        </div>
+        <button id="btnCloseColocarMenu" class="p-1.5 rounded-xl text-slate-400 hover:text-white bg-white/5">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Opção 1: Cadastrar Nova Conta/Boleto a Pagar -->
+        <button id="btnOptionAddDebt" class="w-full p-3.5 rounded-2xl border border-indigo-500/30 bg-indigo-950/25 hover:bg-indigo-950/45 text-left flex items-center space-x-3 transition-all active:scale-98">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-bold text-white">+ Colocar Nova Conta / Dívida</p>
+            <p class="text-[10px] text-slate-400">Cadastrar conta de luz, cartão, internet, aluguel...</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>
+
+        <!-- Opção 2: Adicionar Dinheiro/Saldo em Minhas Contas -->
+        <button id="btnOptionAddBalance" class="w-full p-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-950/25 hover:bg-emerald-950/45 text-left flex items-center space-x-3 transition-all active:scale-98">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
+            <i data-lucide="wallet-cards" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-bold text-white">+ Colocar Saldo em Dinheiro</p>
+            <p class="text-[10px] text-slate-400">Adicionar valor manual ao saldo da categoria Contas</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: COLOCAR SALDO AVULSO EM CONTAS      -->
+  <!-- ========================================== -->
+  <div id="modalAddContasBalance" class="fixed inset-0 z-50 hidden flex items-center justify-center px-4 glass-modal-backdrop">
+    <div class="glass-card w-full max-w-sm p-6 border-emerald-500/30 bg-[#090D1C]/90 shadow-2xl relative">
+      <div class="flex items-center space-x-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <i data-lucide="wallet-cards" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">Minhas Contas</span>
+          <h3 class="text-base font-bold text-white">Colocar Saldo em Dinheiro</h3>
+        </div>
+      </div>
+
+      <div class="space-y-3 mb-4">
+        <div>
+          <label class="block text-xs text-slate-300 font-semibold mb-1">Descrição</label>
+          <input type="text" id="addContasBalanceDesc" placeholder="Ex: Depósito avulso, Transferência..." class="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:border-emerald-400 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-300 font-semibold mb-1">Valor a Colocar</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">R$</span>
+            <input type="number" id="addContasBalanceValue" inputmode="decimal" placeholder="0,00" class="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-sm text-white font-bold focus:border-emerald-400 focus:outline-none">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="btnCancelAddBalance" class="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button id="btnConfirmAddBalance" class="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-black active:scale-95 transition-all">Confirmar Entrada</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: MENU TIRAR (GASTO OU CONTA)         -->
+  <!-- ========================================== -->
+  <div id="modalTirarMenu" class="fixed inset-0 z-50 hidden flex items-center justify-center px-4 glass-modal-backdrop">
+    <div class="glass-card w-full max-w-sm p-6 border-rose-500/30 bg-[#090D1C]/95 shadow-2xl relative">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center">
+            <i data-lucide="minus-circle" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-rose-400">Minhas Contas</span>
+            <h3 class="text-sm font-bold text-white">Tirar de Contas</h3>
+          </div>
+        </div>
+        <button id="btnCloseTirarMenu" class="p-1.5 rounded-xl text-slate-400 hover:text-white bg-white/5">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Opção 1: Registrar Gasto/Saída de Dinheiro -->
+        <button id="btnOptionExpenseMoney" class="w-full p-3.5 rounded-2xl border border-rose-500/30 bg-rose-950/25 hover:bg-rose-950/45 text-left flex items-center space-x-3 transition-all active:scale-98">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
+            <i data-lucide="trending-down" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-bold text-white">- Tirar Saldo (Registrar Gasto)</p>
+            <p class="text-[10px] text-slate-400">Abater pagamento ou despesa paga com Contas</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>
+
+        <!-- Opção 2: Tirar / Excluir Contas Cadastradas -->
+        <button id="btnOptionManageDebts" class="w-full p-3.5 rounded-2xl border border-amber-500/30 bg-amber-950/25 hover:bg-amber-950/45 text-left flex items-center space-x-3 transition-all active:scale-98">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-xs font-bold text-white">- Tirar / Excluir Contas Cadastradas</p>
+            <p class="text-[10px] text-slate-400">Ver lista de contas e apagar as que desejar</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
   <!-- MODAL RÁPIDO: REGISTRAR GASTO DE CONTAS    -->
   <!-- ========================================== -->
   <div id="modalExpense" class="fixed inset-0 z-50 hidden flex items-center justify-center px-4 glass-modal-backdrop">
@@ -1115,14 +1258,14 @@
         </div>
         <div>
           <span class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-400">Compromissos</span>
-          <h3 class="text-base font-bold text-white">Adicionar Dívida / Parcela</h3>
+          <h3 class="text-base font-bold text-white">Colocar Nova Conta / Dívida</h3>
         </div>
       </div>
 
       <div class="space-y-3 mb-4">
         <div>
-          <label class="block text-xs text-slate-300 font-semibold mb-1">Título do Compromisso</label>
-          <input type="text" id="newDebtTitle" placeholder="Ex: Cartão Nubank, Parcela Fone..." class="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:border-indigo-400 focus:outline-none">
+          <label class="block text-xs text-slate-300 font-semibold mb-1">Título da Conta</label>
+          <input type="text" id="newDebtTitle" placeholder="Ex: Cartão Nubank, Parcela Fone, Luz..." class="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:border-indigo-400 focus:outline-none">
         </div>
         <div>
           <label class="block text-xs text-slate-300 font-semibold mb-1">Valor Mensal</label>
@@ -1156,7 +1299,7 @@
 
       <div class="flex items-center space-x-2">
         <button id="btnCancelNewDebt" class="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">Cancelar</button>
-        <button id="btnConfirmNewDebt" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold active:scale-95 transition-all">Salvar Dívida</button>
+        <button id="btnConfirmNewDebt" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold active:scale-95 transition-all">Salvar Conta</button>
       </div>
     </div>
   </div>

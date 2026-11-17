@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.FintechIFood" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:statusBarColor">#070913</item>
-        <item name="android:navigationBarColor">#070913</item>
-        <item name="android:windowBackground">#070913</item>
+        <item name="android:windowBackground">@color/obsidian</item>
     </style>
 </resources>

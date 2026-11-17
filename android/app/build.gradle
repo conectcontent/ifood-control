@@ -17,10 +17,8 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
         }
         debug {
-            applicationIdSuffix ".debug"
             debuggable true
         }
     }

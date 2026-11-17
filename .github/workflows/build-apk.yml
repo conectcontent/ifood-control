@@ -23,16 +23,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Compilar APK Android
+      - name: Gerar Gradle Wrapper e Compilar APK
         run: |
           cd android
-          chmod +x gradlew || true
-          gradle assembleRelease --no-daemon || gradle assembleDebug --no-daemon
+          gradle wrapper --gradle-version 8.5
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Preparar arquivo APK
+      - name: Localizar e Renomear APK
         run: |
           APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
           echo "APK encontrado em: $APK_FILE"
@@ -46,18 +47,17 @@ jobs:
 
       - name: Publicar Release no GitHub com Download Direto
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/heads/main')
         with:
           tag_name: v1.0.0
           name: "Fintech iFood Control v1.0 (APK Android)"
           body: |
             ### 📱 Fintech iFood Control - APK para Android
             
-            Baixe o arquivo **Fintech-iFood-Control.apk** abaixo diretamente para o seu smartphone Android!
+            Clique abaixo para baixar o **Fintech-iFood-Control.apk** e instalar no seu celular!
             
             - **Instalação Nativa**: Não depende de navegador.
-            - **24h na Nuvem**: Conecta diretamente ao app seguro.
-            - **Multi-Usuário**: Suporte a cadastro de perfis.
+            - **24h na Nuvem**: Roda sempre online.
+            - **Multi-Usuário**: Sistema de perfis de entregadores.
           files: ./Fintech-iFood-Control.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

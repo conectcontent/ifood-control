@@ -23,15 +23,16 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Gerar Gradle Wrapper e Compilar APK
+      - name: Aceitar Licenças Android
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+
+      - name: Compilar APK
         run: |
           cd android
-          gradle wrapper --gradle-version 8.5
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace
 
       - name: Localizar e Renomear APK
         run: |

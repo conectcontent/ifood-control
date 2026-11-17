@@ -1,0 +1,16 @@
+# Chaves de segurança e credenciais
+*.key
+.key
+*.pem
+*.id_rsa
+
+# Scripts locais de deploy
+*.bat
+*.ps1
+iniciar-servidor.bat
+deploy-oracle.bat
+deploy-oracle.ps1
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db

@@ -711,12 +711,20 @@
             </div>
           </div>
 
-          <!-- Seletor de Mês (Jan a Abr) -->
-          <div class="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-black/40 border border-white/10 mb-3">
-            <button class="month-selector-btn py-2 text-xs font-bold rounded-xl transition-all" data-month="jan">Jan</button>
-            <button class="month-selector-btn py-2 text-xs font-bold rounded-xl transition-all" data-month="fev">Fev</button>
-            <button class="month-selector-btn py-2 text-xs font-bold rounded-xl transition-all" data-month="mar">Mar</button>
-            <button class="month-selector-btn py-2 text-xs font-bold rounded-xl transition-all" data-month="abr">Abr</button>
+          <!-- Seletor de Mês (Jan a Dez - 12 Meses) -->
+          <div class="grid grid-cols-6 gap-1 p-1.5 rounded-2xl bg-black/40 border border-white/10 mb-3 text-xs">
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="jan">Jan</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="fev">Fev</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="mar">Mar</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="abr">Abr</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="mai">Mai</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="jun">Jun</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="jul">Jul</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="ago">Ago</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="set">Set</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="out">Out</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="nov">Nov</button>
+            <button class="month-selector-btn py-1.5 text-[11px] font-bold rounded-xl transition-all" data-month="dez">Dez</button>
           </div>
 
           <!-- Resumo do Mês Selecionado -->
@@ -1501,23 +1509,62 @@
           </div>
         </div>
         <div>
-          <label class="block text-xs text-slate-300 font-semibold mb-1">Meses Ativos</label>
-          <div class="grid grid-cols-4 gap-2">
-            <label class="flex items-center space-x-1 text-xs text-slate-300">
-              <input type="checkbox" id="chkJan" class="rounded bg-white/10 border-white/20 text-cyan-500">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs text-slate-300 font-semibold">Meses Ativos da Conta</label>
+            <div class="flex items-center space-x-2 text-[10px]">
+              <button type="button" id="btnSelectAllDebtMonths" class="text-cyan-400 hover:underline font-bold">Ano Todo</button>
+              <span class="text-slate-500">•</span>
+              <button type="button" id="btnClearDebtMonths" class="text-slate-400 hover:underline">Limpar</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-2 p-2.5 rounded-xl bg-black/40 border border-white/5">
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkJan" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
               <span>Jan</span>
             </label>
-            <label class="flex items-center space-x-1 text-xs text-slate-300">
-              <input type="checkbox" id="chkFev" checked class="rounded bg-white/10 border-white/20 text-cyan-500">
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkFev" checked class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
               <span>Fev</span>
             </label>
-            <label class="flex items-center space-x-1 text-xs text-slate-300">
-              <input type="checkbox" id="chkMar" checked class="rounded bg-white/10 border-white/20 text-cyan-500">
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkMar" checked class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
               <span>Mar</span>
             </label>
-            <label class="flex items-center space-x-1 text-xs text-slate-300">
-              <input type="checkbox" id="chkAbr" checked class="rounded bg-white/10 border-white/20 text-cyan-500">
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkAbr" checked class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
               <span>Abr</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkMai" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Mai</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkJun" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Jun</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkJul" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Jul</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkAgo" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Ago</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkSet" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Set</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkOut" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Out</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkNov" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Nov</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="chkDez" class="chk-debt-month rounded bg-white/10 border-white/20 text-cyan-500">
+              <span>Dez</span>
             </label>
           </div>
         </div>

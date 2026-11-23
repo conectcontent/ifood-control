@@ -57,6 +57,51 @@
     blue: '#3B82F6',
   };
 
+  const MONTHS_LIST = [
+    { key: 'jan', short: 'Jan', name: 'Janeiro' },
+    { key: 'fev', short: 'Fev', name: 'Fevereiro' },
+    { key: 'mar', short: 'Mar', name: 'Março' },
+    { key: 'abr', short: 'Abr', name: 'Abril' },
+    { key: 'mai', short: 'Mai', name: 'Maio' },
+    { key: 'jun', short: 'Jun', name: 'Junho' },
+    { key: 'jul', short: 'Jul', name: 'Julho' },
+    { key: 'ago', short: 'Ago', name: 'Agosto' },
+    { key: 'set', short: 'Set', name: 'Setembro' },
+    { key: 'out', short: 'Out', name: 'Outubro' },
+    { key: 'nov', short: 'Nov', name: 'Novembro' },
+    { key: 'dez', short: 'Dez', name: 'Dezembro' },
+  ];
+
+  const MONTH_NAMES = {
+    jan: 'Janeiro',
+    fev: 'Fevereiro',
+    mar: 'Março',
+    abr: 'Abril',
+    mai: 'Maio',
+    jun: 'Junho',
+    jul: 'Julho',
+    ago: 'Agosto',
+    set: 'Setembro',
+    out: 'Outubro',
+    nov: 'Novembro',
+    dez: 'Dezembro',
+  };
+
+  const MONTH_SHORT = {
+    jan: 'Jan',
+    fev: 'Fev',
+    mar: 'Mar',
+    abr: 'Abr',
+    mai: 'Mai',
+    jun: 'Jun',
+    jul: 'Jul',
+    ago: 'Ago',
+    set: 'Set',
+    out: 'Out',
+    nov: 'Nov',
+    dez: 'Dez',
+  };
+
   const COLOR_PALETTES = {
     cyan: {
       border: 'border-cyan-500/20 hover:border-cyan-500/40',
@@ -264,7 +309,7 @@
   // ==========================================
   // SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (GITHUB)
   // ==========================================
-  const CURRENT_APP_VERSION = '1.3.0';
+  const CURRENT_APP_VERSION = '1.4.0';
   const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/version.json';
   let pendingUpdateData = null;
 
@@ -1152,7 +1197,7 @@
     if (!modal) return;
 
     const currentMonth = appState.selectedDebtMonth || 'fev';
-    const monthNames = { jan: 'Janeiro', fev: 'Fevereiro', mar: 'Março', abr: 'Abril' };
+    const monthNames = MONTH_NAMES;
     const debts = appState.debts || [];
     const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
     const totalMonthDebts = activeDebts.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
@@ -1402,7 +1447,7 @@
     if (!cardEl || !titleEl) return;
 
     const currentMonth = appState.selectedDebtMonth || 'fev';
-    const monthNames = { jan: 'Janeiro', fev: 'Fevereiro', mar: 'Março', abr: 'Abril' };
+    const monthNames = MONTH_NAMES;
     const debts = appState.debts || [];
     const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
     const pendingDebts = activeDebts.filter((d) => !(d.paidMonths || []).includes(currentMonth));
@@ -2006,7 +2051,7 @@
     if (!listEl) return;
 
     const currentMonth = appState.selectedDebtMonth || 'fev';
-    const monthNames = { jan: 'Janeiro', fev: 'Fevereiro', mar: 'Março', abr: 'Abril' };
+    const monthNames = MONTH_NAMES;
 
     document.querySelectorAll('.month-selector-btn').forEach((btn) => {
       const m = btn.dataset.month;
@@ -2916,14 +2961,27 @@
         const title = document.getElementById('newDebtTitle').value;
         const value = document.getElementById('newDebtValue').value;
         const months = [];
-        if (document.getElementById('chkJan').checked) months.push('jan');
-        if (document.getElementById('chkFev').checked) months.push('fev');
-        if (document.getElementById('chkMar').checked) months.push('mar');
-        if (document.getElementById('chkAbr').checked) months.push('abr');
+        MONTHS_LIST.forEach((m) => {
+          const chk = document.getElementById(`chk${m.short}`);
+          if (chk && chk.checked) months.push(m.key);
+        });
 
         addNewDebt(title, value, months);
         modalNewDebt.classList.add('hidden');
       });
+
+      const btnSelectAllDebtMonths = document.getElementById('btnSelectAllDebtMonths');
+      const btnClearDebtMonths = document.getElementById('btnClearDebtMonths');
+      if (btnSelectAllDebtMonths) {
+        btnSelectAllDebtMonths.addEventListener('click', () => {
+          document.querySelectorAll('.chk-debt-month').forEach((chk) => { chk.checked = true; });
+        });
+      }
+      if (btnClearDebtMonths) {
+        btnClearDebtMonths.addEventListener('click', () => {
+          document.querySelectorAll('.chk-debt-month').forEach((chk) => { chk.checked = false; });
+        });
+      }
     }
 
     const btnSaveSettings = document.getElementById('btnSaveSettings');

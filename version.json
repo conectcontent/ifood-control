@@ -1,8 +1,8 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "minRequiredVersion": "1.0.0",
   "releaseDate": "2026-11-23",
-  "releaseNotes": "v1.2: Personalização completa da Tabela do Desafio: defina a quantidade de quadradinhos e valores por bloco, meta total ou progressivo.",
+  "releaseNotes": "v1.3: Sincronização automática das contas do Painel com a aba Dívidas & Parcelamentos e novo Gerenciador de Metas Dinâmico (coloque e tire metas livremente).",
   "apkDownloadUrl": "https://github.com/conectcontent/ifood-control/releases/latest/download/Fintech-iFood-Control.apk",
   "mandatory": false
 }

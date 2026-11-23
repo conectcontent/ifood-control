@@ -18,6 +18,12 @@
       metaOficina: 250,
       metaTurnos: 26,
     },
+    goals: [
+      { id: 'contas', name: 'Minhas Contas', target: 1450, color: 'emerald', icon: 'receipt', isContas: true, syncWithDebts: true },
+      { id: 'reserva', name: 'Minha Reserva', target: 400, color: 'purple', icon: 'shield', isPeakTarget: true },
+      { id: 'exterior', name: 'Namorado', target: 500, color: 'cyan', icon: 'heart', isPeakTarget: true },
+      { id: 'oficina', name: 'Oficina Bike', target: 250, color: 'amber', icon: 'wrench' },
+    ],
     categories: {
       exterior: { accumulated: 0, peakExtra: 0 },
       contas: { accumulated: 0, spent: 0 },
@@ -41,6 +47,110 @@
     selectedDebtMonth: 'fev',
     privacyMode: false,
   };
+
+  const HEX_COLORS = {
+    cyan: '#06B6D4',
+    emerald: '#10B981',
+    purple: '#A855F7',
+    amber: '#F59E0B',
+    rose: '#F43F5E',
+    blue: '#3B82F6',
+  };
+
+  const COLOR_PALETTES = {
+    cyan: {
+      border: 'border-cyan-500/20 hover:border-cyan-500/40',
+      tagText: 'text-cyan-400',
+      ringColor: 'text-cyan-400',
+      pctColor: 'text-cyan-300',
+      extraColor: 'text-cyan-300',
+      glow: 'shadow-glow-cyan',
+      badge: 'bg-cyan-500/20 text-cyan-300',
+    },
+    emerald: {
+      border: 'border-emerald-500/20 hover:border-emerald-500/40',
+      tagText: 'text-emerald-400',
+      ringColor: 'text-emerald-400',
+      pctColor: 'text-emerald-300',
+      extraColor: 'text-emerald-300',
+      glow: 'shadow-glow-emerald',
+      badge: 'bg-emerald-500/20 text-emerald-300',
+    },
+    purple: {
+      border: 'border-purple-500/20 hover:border-purple-500/40',
+      tagText: 'text-purple-400',
+      ringColor: 'text-purple-400',
+      pctColor: 'text-purple-300',
+      extraColor: 'text-purple-300',
+      glow: 'shadow-glow-purple',
+      badge: 'bg-purple-500/20 text-purple-300',
+    },
+    amber: {
+      border: 'border-amber-500/20 hover:border-amber-500/40',
+      tagText: 'text-amber-400',
+      ringColor: 'text-amber-400',
+      pctColor: 'text-amber-300',
+      extraColor: 'text-amber-300',
+      glow: 'shadow-glow-amber',
+      badge: 'bg-amber-500/20 text-amber-300',
+    },
+    rose: {
+      border: 'border-rose-500/20 hover:border-rose-500/40',
+      tagText: 'text-rose-400',
+      ringColor: 'text-rose-400',
+      pctColor: 'text-rose-300',
+      extraColor: 'text-rose-300',
+      glow: 'shadow-glow-rose',
+      badge: 'bg-rose-500/20 text-rose-300',
+    },
+    blue: {
+      border: 'border-blue-500/20 hover:border-blue-500/40',
+      tagText: 'text-blue-400',
+      ringColor: 'text-blue-400',
+      pctColor: 'text-blue-300',
+      extraColor: 'text-blue-300',
+      glow: 'shadow-glow-blue',
+      badge: 'bg-blue-500/20 text-blue-300',
+    },
+  };
+
+  let selectedNewGoalColor = 'cyan';
+
+  function getGoalsList() {
+    if (Array.isArray(appState.goals) && appState.goals.length > 0) {
+      return appState.goals;
+    }
+    const s = appState.settings || {};
+    const defaultGoals = [
+      { id: 'contas', name: 'Minhas Contas', target: s.metaContas !== undefined ? s.metaContas : 1450, color: 'emerald', icon: 'receipt', isContas: true, syncWithDebts: true },
+      { id: 'reserva', name: 'Minha Reserva', target: s.metaReserva !== undefined ? s.metaReserva : 400, color: 'purple', icon: 'shield', isPeakTarget: true },
+      { id: 'exterior', name: 'Namorado', target: s.metaExterior !== undefined ? s.metaExterior : 500, color: 'cyan', icon: 'heart', isPeakTarget: true },
+      { id: 'oficina', name: 'Oficina Bike', target: s.metaOficina !== undefined ? s.metaOficina : 250, color: 'amber', icon: 'wrench' },
+    ];
+    appState.goals = defaultGoals;
+    return appState.goals;
+  }
+
+  function getEffectiveGoalTarget(goal) {
+    if (!goal) return 0;
+    if (goal.isContas && goal.syncWithDebts !== false) {
+      const currentMonth = appState.selectedDebtMonth || 'fev';
+      const debts = appState.debts || [];
+      const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
+      const totalMonthDebts = activeDebts.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+      return totalMonthDebts;
+    }
+    return parseFloat(goal.target) || 0;
+  }
+
+  function getTotalMetaMonth() {
+    const goals = getGoalsList();
+    let sum = 0;
+    goals.forEach((g) => {
+      sum += getEffectiveGoalTarget(g);
+    });
+    return sum;
+  }
 
   const USERS_STORAGE_KEY = 'fintech_users_list_v1';
   const ACTIVE_USER_KEY = 'fintech_active_user_v1';
@@ -154,7 +264,7 @@
   // ==========================================
   // SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (GITHUB)
   // ==========================================
-  const CURRENT_APP_VERSION = '1.2.0';
+  const CURRENT_APP_VERSION = '1.3.0';
   const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/version.json';
   let pendingUpdateData = null;
 
@@ -354,6 +464,7 @@
 
     // Inicializa o estado TOTALMENTE ZERADO
     appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.goals = JSON.parse(JSON.stringify(DEFAULT_STATE.goals));
     appState.debts = [];
     appState.entries = [];
     appState.expenses = [];
@@ -375,6 +486,11 @@
       appState.settings.metaContas = Math.round(1450 * ratio);
       appState.settings.metaReserva = Math.round(400 * ratio);
       appState.settings.metaOficina = Math.round(250 * ratio);
+      appState.goals.forEach((g) => {
+        if (!g.isContas) {
+          g.target = Math.round(g.target * ratio);
+        }
+      });
     }
     saveState();
     renderAll();
@@ -469,19 +585,51 @@
   // CÁLCULOS E REGRAS DE NEGÓCIO DO IFOOD
   // ==========================================
   function calculateProportions(baseAmount) {
-    const settings = appState.settings;
-    const totalMeta = settings.metaExterior + settings.metaContas + settings.metaReserva + settings.metaOficina;
+    const goals = getGoalsList();
+    if (!goals || goals.length === 0) return {};
 
-    const fExterior = settings.metaExterior / totalMeta;
-    const fContas = settings.metaContas / totalMeta;
-    const fReserva = settings.metaReserva / totalMeta;
+    let sumTargets = 0;
+    const targetMap = {};
+    goals.forEach((g) => {
+      const eff = getEffectiveGoalTarget(g);
+      targetMap[g.id] = eff;
+      sumTargets += eff;
+    });
 
-    const exterior = Number((baseAmount * fExterior).toFixed(2));
-    const contas = Number((baseAmount * fContas).toFixed(2));
-    const reserva = Number((baseAmount * fReserva).toFixed(2));
-    const oficina = Number((baseAmount - (exterior + contas + reserva)).toFixed(2));
+    const split = {};
+    let allocated = 0;
 
-    return { exterior, contas, reserva, oficina };
+    if (sumTargets <= 0) {
+      const share = Number((baseAmount / goals.length).toFixed(2));
+      goals.forEach((g, idx) => {
+        if (idx === goals.length - 1) {
+          split[g.id] = Number((baseAmount - allocated).toFixed(2));
+        } else {
+          split[g.id] = share;
+          allocated += share;
+        }
+      });
+    } else {
+      goals.forEach((g, idx) => {
+        const eff = targetMap[g.id] || 0;
+        const frac = eff / sumTargets;
+        if (idx === goals.length - 1) {
+          split[g.id] = Number((baseAmount - allocated).toFixed(2));
+        } else {
+          const val = Number((baseAmount * frac).toFixed(2));
+          split[g.id] = val;
+          allocated += val;
+        }
+      });
+    }
+
+    // Compatibilidade reversa com acessos split.exterior, split.contas, etc.
+    if (split.contas === undefined && split['contas']) split.contas = split['contas'];
+    if (split.reserva === undefined && split['reserva']) split.reserva = split['reserva'];
+    if (split.exterior === undefined && split['exterior']) split.exterior = split['exterior'];
+    if (split.oficina === undefined && split['oficina']) split.oficina = split['oficina'];
+
+    return split;
   }
 
   function processDailyGain(val) {
@@ -503,33 +651,49 @@
 
   function commitDailyEntry(total, base, surplus, surplusChoice) {
     const split = calculateProportions(base);
+    const goals = getGoalsList();
 
-    let extraExterior = 0;
-    let extraReserva = 0;
+    if (!appState.categories) appState.categories = {};
+    goals.forEach((g) => {
+      if (!appState.categories[g.id]) {
+        appState.categories[g.id] = { accumulated: 0, spent: 0, peakExtra: 0 };
+      }
+    });
 
+    const extraMap = {};
     if (surplus > 0) {
-      if (surplusChoice === 'exterior') {
-        extraExterior = surplus;
-      } else if (surplusChoice === 'reserva') {
-        extraReserva = surplus;
-      } else if (surplusChoice === 'half') {
-        extraExterior = Number((surplus / 2).toFixed(2));
-        extraReserva = Number((surplus - extraExterior).toFixed(2));
+      if (surplusChoice === 'half') {
+        const peakGoals = goals.filter((g) => g.isPeakTarget);
+        const g1 = peakGoals[0] || goals[0];
+        const g2 = peakGoals[1] || goals[1] || g1;
+        const h1 = Number((surplus / 2).toFixed(2));
+        const h2 = Number((surplus - h1).toFixed(2));
+        if (g1) extraMap[g1.id] = (extraMap[g1.id] || 0) + h1;
+        if (g2 && g2 !== g1) extraMap[g2.id] = (extraMap[g2.id] || 0) + h2;
+        else if (g2 === g1) extraMap[g1.id] = (extraMap[g1.id] || 0) + h2;
+      } else if (surplusChoice && appState.categories[surplusChoice]) {
+        extraMap[surplusChoice] = surplus;
+      } else {
+        const firstPeak = goals.find((g) => g.isPeakTarget) || goals[0];
+        if (firstPeak) extraMap[firstPeak.id] = surplus;
       }
     }
 
-    appState.categories.exterior.accumulated += (split.exterior + extraExterior);
-    appState.categories.exterior.peakExtra += extraExterior;
+    const recordedSplit = {};
+    goals.forEach((g) => {
+      const baseAlloc = split[g.id] || 0;
+      const extra = extraMap[g.id] || 0;
+      const totalGoalAlloc = Number((baseAlloc + extra).toFixed(2));
+      recordedSplit[g.id] = totalGoalAlloc;
 
-    appState.categories.contas.accumulated += split.contas;
+      appState.categories[g.id].accumulated = Number(((appState.categories[g.id].accumulated || 0) + totalGoalAlloc).toFixed(2));
+      if (extra > 0) {
+        appState.categories[g.id].peakExtra = Number(((appState.categories[g.id].peakExtra || 0) + extra).toFixed(2));
+      }
+    });
 
-    appState.categories.reserva.accumulated += (split.reserva + extraReserva);
-    appState.categories.reserva.peakExtra += extraReserva;
-
-    appState.categories.oficina.accumulated += split.oficina;
-
-    appState.totalAccumulatedMonth += total;
-    appState.totalPeakExtra += surplus;
+    appState.totalAccumulatedMonth = Number((appState.totalAccumulatedMonth + total).toFixed(2));
+    appState.totalPeakExtra = Number((appState.totalPeakExtra + surplus).toFixed(2));
     appState.turnCount += 1;
 
     const entryRecord = {
@@ -539,12 +703,7 @@
       base,
       surplus,
       surplusChoice,
-      split: {
-        exterior: split.exterior + extraExterior,
-        contas: split.contas,
-        reserva: split.reserva + extraReserva,
-        oficina: split.oficina,
-      },
+      split: recordedSplit,
     };
     appState.entries.unshift(entryRecord);
 
@@ -556,9 +715,9 @@
     if (input) input.value = '';
 
     if (surplus > 0) {
-      showToast(`Lançamento de R$ ${total.toFixed(2)} registrado com R$ ${surplus.toFixed(2)} de pico!`, '🚀');
+      showToast(`Lançamento de ${formatBRL(total)} registrado com ${formatBRL(surplus)} de pico!`, '🚀');
     } else {
-      showToast(`Ganho de R$ ${total.toFixed(2)} dividido com sucesso!`, '✅');
+      showToast(`Ganho de ${formatBRL(total)} dividido com sucesso!`, '✅');
     }
   }
 
@@ -570,10 +729,70 @@
     document.getElementById('modalPeakSurplus').textContent = formatBRL(surplus);
     document.getElementById('modalPeakSurplusText').textContent = formatBRL(surplus);
 
-    document.getElementById('optSurplusExterior').textContent = `+${formatBRL(surplus)}`;
-    document.getElementById('optSurplusReserva').textContent = `+${formatBRL(surplus)}`;
-    const half = surplus / 2;
-    document.getElementById('optSurplusHalf').textContent = `+${formatBRL(half)} cada`;
+    const container = document.getElementById('surplusChoicesContainer');
+    if (container) {
+      container.innerHTML = '';
+      const goals = getGoalsList();
+      const peakCandidates = goals.filter((g) => !g.isContas);
+
+      // Metas individuais elegíveis
+      peakCandidates.forEach((g) => {
+        const palette = COLOR_PALETTES[g.color] || COLOR_PALETTES.cyan;
+        const btn = document.createElement('button');
+        btn.className = `choice-surplus-btn w-full p-3 rounded-2xl bg-white/5 border ${palette.border} hover:bg-white/10 text-left flex items-center justify-between group active:scale-98 transition-all`;
+        btn.dataset.choice = g.id;
+        btn.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-white/10 ${palette.tagText} flex items-center justify-center">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-white group-hover:${palette.tagText}">100% ${g.name}</p>
+              <p class="text-[10px] text-slate-400">Acelerar conquista desta meta</p>
+            </div>
+          </div>
+          <span class="text-xs font-black ${palette.pctColor} tabular-numbers">+${formatBRL(surplus)}</span>
+        `;
+        btn.addEventListener('click', () => {
+          if (pendingPeakEntry) {
+            commitDailyEntry(pendingPeakEntry.total, 100, pendingPeakEntry.surplus, g.id);
+            closePeakModal();
+          }
+        });
+        container.appendChild(btn);
+      });
+
+      // Opção de divisão 50/50 se houver 2 ou mais
+      if (peakCandidates.length >= 2) {
+        const half = surplus / 2;
+        const btnHalf = document.createElement('button');
+        btnHalf.className = 'choice-surplus-btn w-full p-3 rounded-2xl bg-white/5 border border-emerald-500/30 hover:bg-emerald-500/10 text-left flex items-center justify-between group active:scale-98 transition-all';
+        btnHalf.dataset.choice = 'half';
+        btnHalf.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
+              <i data-lucide="scale" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-white group-hover:text-emerald-300">50/50 Dividir entre Metas</p>
+              <p class="text-[10px] text-slate-400">Equilíbrio perfeito de alocação</p>
+            </div>
+          </div>
+          <span class="text-xs font-black text-emerald-300 tabular-numbers">+${formatBRL(half)} cada</span>
+        `;
+        btnHalf.addEventListener('click', () => {
+          if (pendingPeakEntry) {
+            commitDailyEntry(pendingPeakEntry.total, 100, pendingPeakEntry.surplus, 'half');
+            closePeakModal();
+          }
+        });
+        container.appendChild(btnHalf);
+      }
+
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    }
 
     modal.classList.remove('hidden');
     triggerHaptic(40);
@@ -784,15 +1003,16 @@
   }
 
   function renderDashboardBento() {
-    const cats = appState.categories;
-    const settings = appState.settings;
-
-    const totalMeta = settings.metaExterior + settings.metaContas + settings.metaReserva + settings.metaOficina;
+    const goals = getGoalsList();
+    const totalMeta = getTotalMetaMonth();
     const currentTotal = appState.totalAccumulatedMonth;
-    const totalPct = Math.min(100, Math.round((currentTotal / (totalMeta || 1)) * 100));
+    const totalPct = totalMeta > 0 ? Math.min(100, Math.round((currentTotal / totalMeta) * 100)) : (currentTotal > 0 ? 100 : 0);
 
     const totalEl = document.getElementById('totalMonthAccumulated');
     if (totalEl) totalEl.textContent = formatBRL(currentTotal);
+
+    const generalMetaEl = document.getElementById('generalMetaTotal');
+    if (generalMetaEl) generalMetaEl.textContent = formatBRL(totalMeta);
 
     const generalBar = document.getElementById('generalProgressBar');
     if (generalBar) generalBar.style.width = `${totalPct}%`;
@@ -800,17 +1020,376 @@
     const generalPctEl = document.getElementById('generalProgressPct');
     if (generalPctEl) generalPctEl.textContent = `${totalPct}%`;
 
-    updateBentoCard('exterior', cats.exterior.accumulated, settings.metaExterior, cats.exterior.peakExtra);
-
-    const saldoContas = Math.max(0, cats.contas.accumulated - cats.contas.spent);
-    updateBentoCard('contas', saldoContas, settings.metaContas, null);
-
-    updateBentoCard('reserva', cats.reserva.accumulated, settings.metaReserva, cats.reserva.peakExtra);
-
-    const saldoOficina = Math.max(0, cats.oficina.accumulated - cats.oficina.spent);
-    updateBentoCard('oficina', saldoOficina, settings.metaOficina, null);
+    const gridContainer = document.getElementById('bentoGridContainer');
+    if (gridContainer) {
+      renderBentoGridCards(gridContainer, goals);
+    }
 
     updateDashboardDebtAlert();
+  }
+
+  function renderBentoGridCards(container, goals) {
+    container.innerHTML = '';
+    const cats = appState.categories || {};
+    const currentMonth = appState.selectedDebtMonth || 'fev';
+    const monthShort = { jan: 'Jan', fev: 'Fev', mar: 'Mar', abr: 'Abr' };
+    const debts = appState.debts || [];
+    const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
+    const pendingDebts = activeDebts.filter((d) => !(d.paidMonths || []).includes(currentMonth));
+    const pendingTotal = pendingDebts.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+    const totalMonthDebts = activeDebts.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
+    goals.forEach((goal, idx) => {
+      const catData = cats[goal.id] || { accumulated: 0, spent: 0, peakExtra: 0 };
+      const val = Math.max(0, (catData.accumulated || 0) - (catData.spent || 0));
+      const target = getEffectiveGoalTarget(goal);
+      const pct = target > 0 ? Math.min(100, Math.round((val / target) * 100)) : (val > 0 ? 100 : 0);
+      const offset = 100 - pct;
+      const palette = COLOR_PALETTES[goal.color] || COLOR_PALETTES.cyan;
+      const hexColor = HEX_COLORS[goal.color] || '#06B6D4';
+
+      // Se for número ímpar de cards, o último ganha destaque em largura completa no Bento
+      const isLastOdd = goals.length % 2 === 1 && idx === goals.length - 1;
+      const card = document.createElement('div');
+      card.className = `glass-card p-4 flex flex-col justify-between ${palette.border} relative group ${isLastOdd ? 'col-span-2' : ''}`;
+
+      let valLabel = 'Acumulado';
+      if (goal.isContas) valLabel = 'Saldo Protegido';
+      else if (goal.id === 'oficina' || goal.name.toLowerCase().includes('oficina') || goal.name.toLowerCase().includes('manutenção')) valLabel = 'Saldo Manutenção';
+
+      let bottomRowHtml = '';
+      if (goal.isContas) {
+        bottomRowHtml = `
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-white/5">
+            <span>${goal.syncWithDebts !== false ? `Dívidas ${monthShort[currentMonth] || currentMonth}: ${formatBRL(totalMonthDebts)}` : `Teto: ${formatBRL(target)}`}</span>
+            ${goal.syncWithDebts !== false ? (pendingTotal > 0 ? `<span class="text-amber-300 font-bold">${formatBRL(pendingTotal)} pend.</span>` : `<span class="text-emerald-300 font-bold">Em dia ✓</span>`) : ''}
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 mt-2.5">
+            <button class="btn-action-add-conta py-1.5 px-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 active:scale-95 text-[11px] font-bold flex items-center justify-center space-x-1 transition-all" title="Colocar Conta ou Saldo">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+              <span>+ Colocar</span>
+            </button>
+            <button class="btn-action-remove-conta py-1.5 px-2 rounded-xl bg-rose-500/15 border border-rose-500/25 text-rose-300 hover:bg-rose-500/25 active:scale-95 text-[11px] font-bold flex items-center justify-center space-x-1 transition-all" title="Tirar Gasto ou Conta">
+              <i data-lucide="minus-circle" class="w-3.5 h-3.5"></i>
+              <span>- Tirar</span>
+            </button>
+          </div>
+        `;
+      } else if (goal.id === 'oficina' || goal.name.toLowerCase().includes('oficina') || goal.name.toLowerCase().includes('manutenção')) {
+        bottomRowHtml = `
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-white/5">
+            <span>Meta: ${formatBRL(target)}</span>
+          </div>
+          <button class="btn-action-maintenance mt-2.5 w-full py-1.5 px-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 active:scale-95 text-[11px] font-bold flex items-center justify-center space-x-1 transition-all">
+            <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+            <span>- Manutenção</span>
+          </button>
+        `;
+      } else {
+        bottomRowHtml = `
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-white/5">
+            <span>Meta: ${formatBRL(target)}</span>
+            ${(catData.peakExtra || 0) > 0 ? `<span class="${palette.extraColor} font-bold">+${formatBRL(catData.peakExtra)} pico</span>` : ''}
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-[10px] font-extrabold tracking-wider ${palette.tagText} uppercase">0${idx + 1}. ${goal.name}</span>
+            <h3 class="text-xs font-semibold text-slate-300 truncate max-w-[115px]">${goal.name}</h3>
+          </div>
+          <div class="relative w-11 h-11 flex items-center justify-center shrink-0">
+            <svg class="w-11 h-11" viewBox="0 0 36 36">
+              <path class="text-white/10" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <path class="progress-ring-circle" stroke="${hexColor}" stroke-dasharray="100, 100" stroke-dashoffset="${offset}" stroke-width="3.5" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            </svg>
+            <span class="absolute text-[9px] font-black ${palette.pctColor} tabular-numbers">${pct}%</span>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <span class="text-[11px] text-slate-400 block">${valLabel}</span>
+          <p class="text-lg font-black text-white tabular-numbers financial-val">${formatBRL(val)}</p>
+          ${bottomRowHtml}
+        </div>
+      `;
+
+      // Eventos dos botões rápidos dentro do card
+      const btnAddConta = card.querySelector('.btn-action-add-conta');
+      if (btnAddConta) {
+        btnAddConta.addEventListener('click', () => {
+          const m = document.getElementById('modalColocarMenu');
+          if (m) m.classList.remove('hidden');
+        });
+      }
+      const btnRemoveConta = card.querySelector('.btn-action-remove-conta');
+      if (btnRemoveConta) {
+        btnRemoveConta.addEventListener('click', () => {
+          const m = document.getElementById('modalTirarMenu');
+          if (m) m.classList.remove('hidden');
+        });
+      }
+      const btnMaintenance = card.querySelector('.btn-action-maintenance');
+      if (btnMaintenance) {
+        btnMaintenance.addEventListener('click', () => {
+          const m = document.getElementById('modalMaintenance');
+          if (m) m.classList.remove('hidden');
+        });
+      }
+
+      container.appendChild(card);
+    });
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  }
+
+  function openManageGoalsModal() {
+    const modal = document.getElementById('modalManageGoals');
+    if (!modal) return;
+
+    const currentMonth = appState.selectedDebtMonth || 'fev';
+    const monthNames = { jan: 'Janeiro', fev: 'Fevereiro', mar: 'Março', abr: 'Abril' };
+    const debts = appState.debts || [];
+    const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
+    const totalMonthDebts = activeDebts.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
+    const debtPreviewEl = document.getElementById('manageGoalsMonthDebtPreview');
+    if (debtPreviewEl) {
+      debtPreviewEl.textContent = `${formatBRL(totalMonthDebts)} em ${monthNames[currentMonth] || currentMonth}`;
+    }
+
+    renderManageGoalsList();
+    modal.classList.remove('hidden');
+    triggerHaptic(20);
+  }
+
+  function closeManageGoalsModal() {
+    const modal = document.getElementById('modalManageGoals');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function renderManageGoalsList() {
+    const container = document.getElementById('manageGoalsListContainer');
+    const countEl = document.getElementById('manageGoalsCount');
+    if (!container) return;
+
+    const goals = getGoalsList();
+    if (countEl) countEl.textContent = `${goals.length} meta(s)`;
+
+    container.innerHTML = '';
+    const currentMonth = appState.selectedDebtMonth || 'fev';
+    const monthShort = { jan: 'Jan', fev: 'Fev', mar: 'Mar', abr: 'Abr' };
+    const debts = appState.debts || [];
+    const activeDebts = debts.filter((d) => d.months && d.months.includes(currentMonth));
+    const totalMonthDebts = activeDebts.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
+    goals.forEach((goal) => {
+      const card = document.createElement('div');
+      card.className = 'p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2';
+      const palette = COLOR_PALETTES[goal.color] || COLOR_PALETTES.cyan;
+
+      if (goal.isContas) {
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full ${palette.glow}" style="background-color: ${HEX_COLORS[goal.color] || '#10B981'}"></span>
+              <span class="text-xs font-bold text-white">${goal.name}</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Contas</span>
+            </div>
+            <button class="btn-remove-goal p-1 text-slate-500 hover:text-rose-400 active:scale-90 transition-all" data-id="${goal.id}" title="Tirar Meta">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between text-xs pt-1 border-t border-white/5">
+            <label class="flex items-center space-x-2 cursor-pointer text-[11px] text-slate-300 select-none">
+              <input type="checkbox" class="chk-goal-sync rounded bg-white/10 text-emerald-500 focus:ring-0" data-id="${goal.id}" ${goal.syncWithDebts !== false ? 'checked' : ''}>
+              <span>Acompanhar aba Dívidas</span>
+            </label>
+          </div>
+
+          <div class="goal-sync-info-box ${goal.syncWithDebts !== false ? '' : 'hidden'} p-2 rounded-xl bg-emerald-950/25 border border-emerald-500/25 text-[10px] text-emerald-300 flex items-center justify-between">
+            <span>Dívidas de ${monthShort[currentMonth] || currentMonth}:</span>
+            <span class="font-bold tabular-numbers text-white">${formatBRL(totalMonthDebts)}</span>
+          </div>
+
+          <div class="goal-target-fixed-box ${goal.syncWithDebts !== false ? 'hidden' : ''} flex items-center justify-between">
+            <span class="text-[11px] text-slate-400">Teto Fixo Manual:</span>
+            <div class="relative w-28">
+              <span class="absolute left-2.5 top-1.5 text-xs text-slate-400 font-bold">R$</span>
+              <input type="number" class="goal-input-target w-full bg-black/40 border border-white/10 rounded-xl py-1 pl-7 pr-2 text-xs text-white font-bold text-right focus:border-emerald-400 focus:outline-none" data-id="${goal.id}" value="${goal.target}">
+            </div>
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 flex-1 mr-2">
+              <span class="w-2.5 h-2.5 rounded-full ${palette.glow} shrink-0" style="background-color: ${HEX_COLORS[goal.color] || '#06B6D4'}"></span>
+              <input type="text" class="goal-input-name bg-transparent border-b border-transparent hover:border-white/20 focus:border-cyan-400 text-xs font-bold text-white focus:outline-none w-full" data-id="${goal.id}" value="${goal.name}" title="Toque para editar o nome da meta">
+            </div>
+            <button class="btn-remove-goal p-1 text-slate-500 hover:text-rose-400 active:scale-90 transition-all shrink-0" data-id="${goal.id}" title="Tirar Meta">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-white/5">
+            <span class="text-[11px] text-slate-400">Meta Mensal:</span>
+            <div class="relative w-28">
+              <span class="absolute left-2.5 top-1.5 text-xs text-slate-400 font-bold">R$</span>
+              <input type="number" class="goal-input-target w-full bg-black/40 border border-white/10 rounded-xl py-1 pl-7 pr-2 text-xs text-white font-bold text-right focus:border-cyan-400 focus:outline-none" data-id="${goal.id}" value="${goal.target}">
+            </div>
+          </div>
+        `;
+      }
+
+      const chkSync = card.querySelector('.chk-goal-sync');
+      if (chkSync) {
+        chkSync.addEventListener('change', (e) => {
+          const syncBox = card.querySelector('.goal-sync-info-box');
+          const fixedBox = card.querySelector('.goal-target-fixed-box');
+          if (syncBox && fixedBox) {
+            if (e.target.checked) {
+              syncBox.classList.remove('hidden');
+              fixedBox.classList.add('hidden');
+            } else {
+              syncBox.classList.add('hidden');
+              fixedBox.classList.remove('hidden');
+            }
+          }
+        });
+      }
+
+      card.querySelector('.btn-remove-goal').addEventListener('click', () => {
+        deleteGoal(goal.id);
+      });
+
+      container.appendChild(card);
+    });
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  }
+
+  function addCustomGoal() {
+    const nameInput = document.getElementById('newGoalName');
+    const targetInput = document.getElementById('newGoalTarget');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const target = targetInput ? parseFloat(targetInput.value) : 0;
+
+    if (!name) {
+      showToast('Digite o nome da meta!', '⚠️');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+    if (isNaN(target) || target <= 0) {
+      showToast('Digite um valor válido para a meta!', '⚠️');
+      if (targetInput) targetInput.focus();
+      return;
+    }
+
+    const goals = getGoalsList();
+    const newId = `meta_${Date.now()}`;
+    const newGoal = {
+      id: newId,
+      name,
+      target,
+      color: selectedNewGoalColor || 'cyan',
+      icon: 'target',
+      isPeakTarget: true,
+    };
+
+    goals.push(newGoal);
+    appState.goals = goals;
+
+    if (!appState.categories) appState.categories = {};
+    if (!appState.categories[newId]) {
+      appState.categories[newId] = { accumulated: 0, spent: 0, peakExtra: 0 };
+    }
+
+    if (nameInput) nameInput.value = '';
+    if (targetInput) targetInput.value = '';
+
+    saveState();
+    renderAll();
+    renderManageGoalsList();
+    triggerHaptic(30);
+    showToast(`Meta "${name}" colocada com sucesso!`, '🎯');
+  }
+
+  function deleteGoal(goalId) {
+    const goals = getGoalsList();
+    if (goals.length <= 1) {
+      showToast('Você precisa manter pelo menos 1 meta no app!', '⚠️');
+      return;
+    }
+    const goalToDelete = goals.find((g) => g.id === goalId);
+    const title = goalToDelete ? goalToDelete.name : 'esta meta';
+    if (!confirm(`Deseja tirar a meta "${title}" do seu aplicativo?`)) return;
+
+    appState.goals = goals.filter((g) => g.id !== goalId);
+    saveState();
+    renderAll();
+    renderManageGoalsList();
+    triggerHaptic(25);
+    showToast(`Meta "${title}" removida com sucesso!`, '🗑️');
+  }
+
+  function saveGoalsFromModal() {
+    const container = document.getElementById('manageGoalsListContainer');
+    if (!container) return;
+
+    const goals = getGoalsList();
+    goals.forEach((goal) => {
+      const nameInput = container.querySelector(`.goal-input-name[data-id="${goal.id}"]`);
+      if (nameInput && nameInput.value.trim()) {
+        goal.name = nameInput.value.trim();
+      }
+      const targetInput = container.querySelector(`.goal-input-target[data-id="${goal.id}"]`);
+      if (targetInput) {
+        const tVal = parseFloat(targetInput.value);
+        if (!isNaN(tVal) && tVal >= 0) {
+          goal.target = tVal;
+        }
+      }
+      const syncChk = container.querySelector(`.chk-goal-sync[data-id="${goal.id}"]`);
+      if (syncChk) {
+        goal.syncWithDebts = syncChk.checked;
+      }
+    });
+
+    appState.goals = goals;
+    saveState();
+    renderAll();
+    closeManageGoalsModal();
+    triggerHaptic(25);
+    showToast('Alterações de metas salvas!', '✅');
+  }
+
+  function updateBentoCard(catKey, currentVal, targetVal, extraPeak) {
+    const valEl = document.getElementById(`val-${catKey}`);
+    const pctEl = document.getElementById(`pct-${catKey}`);
+    const ringEl = document.getElementById(`ring-${catKey}`);
+    const extraEl = document.getElementById(`extra-${catKey}`);
+
+    if (valEl) valEl.textContent = formatBRL(currentVal);
+
+    const pct = targetVal > 0 ? Math.min(100, Math.round((currentVal / targetVal) * 100)) : 0;
+    if (pctEl) pctEl.textContent = `${pct}%`;
+
+    if (ringEl) {
+      const offset = 100 - pct;
+      ringEl.setAttribute('stroke-dashoffset', offset);
+    }
+
+    if (extraEl && extraPeak !== null) {
+      extraEl.textContent = `+${formatBRL(extraPeak)} pico`;
+    }
   }
 
   function updateDashboardDebtAlert() {
@@ -1231,14 +1810,19 @@
   }
 
   function renderAnalyticsAndDonut() {
-    const cats = appState.categories;
-    const settings = appState.settings;
+    const cats = appState.categories || {};
+    const settings = appState.settings || {};
+    const goals = getGoalsList();
 
-    const vExt = cats.exterior.accumulated;
-    const vCon = Math.max(0, cats.contas.accumulated - cats.contas.spent);
-    const vRes = cats.reserva.accumulated;
-    const vOfi = Math.max(0, cats.oficina.accumulated - cats.oficina.spent);
-    const total = vExt + vCon + vRes + vOfi;
+    let total = 0;
+    const catValues = {};
+
+    goals.forEach((g) => {
+      const c = cats[g.id] || { accumulated: 0, spent: 0 };
+      const val = Math.max(0, (c.accumulated || 0) - (c.spent || 0));
+      catValues[g.id] = val;
+      total += val;
+    });
 
     const chartTotalDisplay = document.getElementById('chartTotalDisplay');
     if (chartTotalDisplay) chartTotalDisplay.textContent = formatBRL(total);
@@ -1249,10 +1833,23 @@
     const chartTurnCount = document.getElementById('chartTurnCount');
     if (chartTurnCount) chartTurnCount.textContent = `${appState.turnCount} turnos realizados`;
 
-    document.getElementById('chartLegExterior').textContent = formatBRL(vExt);
-    document.getElementById('chartLegContas').textContent = formatBRL(vCon);
-    document.getElementById('chartLegReserva').textContent = formatBRL(vRes);
-    document.getElementById('chartLegOficina').textContent = formatBRL(vOfi);
+    // Renderiza legendas dinâmicas
+    const legendContainer = document.getElementById('chartLegendContainer');
+    if (legendContainer) {
+      legendContainer.innerHTML = '';
+      goals.forEach((g) => {
+        const palette = COLOR_PALETTES[g.color] || COLOR_PALETTES.cyan;
+        const val = catValues[g.id] || 0;
+        const item = document.createElement('div');
+        item.className = 'flex items-center space-x-2';
+        item.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded-full ${palette.glow}" style="background-color: ${HEX_COLORS[g.color] || '#06B6D4'}"></span>
+          <span class="text-slate-300 truncate">${g.name}:</span>
+          <span class="font-bold text-white tabular-numbers financial-val">${formatBRL(val)}</span>
+        `;
+        legendContainer.appendChild(item);
+      });
+    }
 
     const doneTurns = appState.turnCount;
     const metaTurns = settings.metaTurnos || 26;
@@ -1268,14 +1865,14 @@
 
     const kpiLucroExtra = document.getElementById('kpiLucroExtra');
     if (kpiLucroExtra) {
-      kpiLucroExtra.textContent = formatBRL(appState.totalPeakExtra);
+      kpiLucroExtra.textContent = formatBRL(appState.totalPeakExtra || 0);
     }
 
-    renderDonutSvg(vExt, vCon, vRes, vOfi, total);
+    renderDynamicDonutSvg(goals, catValues, total);
     renderHistoryList();
   }
 
-  function renderDonutSvg(vExt, vCon, vRes, vOfi, total) {
+  function renderDynamicDonutSvg(goals, catValues, total) {
     const svg = document.getElementById('donutSvg');
     if (!svg) return;
 
@@ -1295,17 +1892,11 @@
       return;
     }
 
-    const segments = [
-      { val: vExt, color: '#06B6D4' },
-      { val: vCon, color: '#10B981' },
-      { val: vRes, color: '#A855F7' },
-      { val: vOfi, color: '#F59E0B' },
-    ];
-
     let accumulatedPct = 0;
 
-    segments.forEach((seg) => {
-      const pct = (seg.val / total) * 100;
+    goals.forEach((g) => {
+      const val = catValues[g.id] || 0;
+      const pct = (val / total) * 100;
       if (pct <= 0) return;
 
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1313,7 +1904,7 @@
       circle.setAttribute('cy', center);
       circle.setAttribute('r', radius);
       circle.setAttribute('fill', 'none');
-      circle.setAttribute('stroke', seg.color);
+      circle.setAttribute('stroke', HEX_COLORS[g.color] || '#06B6D4');
       circle.setAttribute('stroke-width', '4.5');
       circle.setAttribute('stroke-dasharray', `${pct} ${100 - pct}`);
       circle.setAttribute('stroke-dashoffset', -accumulatedPct);
@@ -1322,6 +1913,18 @@
 
       accumulatedPct += pct;
     });
+  }
+
+  // Fallback para código legado
+  function renderDonutSvg(vExt, vCon, vRes, vOfi, total) {
+    const goals = getGoalsList();
+    const catValues = {
+      exterior: vExt,
+      contas: vCon,
+      reserva: vRes,
+      oficina: vOfi,
+    };
+    renderDynamicDonutSvg(goals, catValues, total);
   }
 
   function renderHistoryList() {
@@ -1650,12 +2253,58 @@
   }
 
   function renderSettingsForm() {
-    const s = appState.settings;
-    setInputValue('settingMetaExterior', s.metaExterior);
-    setInputValue('settingMetaContas', s.metaContas);
-    setInputValue('settingMetaReserva', s.metaReserva);
-    setInputValue('settingMetaOficina', s.metaOficina);
-    setInputValue('settingMetaTurnos', s.metaTurnos);
+    const s = appState.settings || {};
+    setInputValue('settingMetaTurnos', s.metaTurnos || 26);
+    renderSettingsGoalsList();
+  }
+
+  function renderSettingsGoalsList() {
+    const container = document.getElementById('settingsGoalsListContainer');
+    if (!container) return;
+    const goals = getGoalsList();
+    const currentMonth = appState.selectedDebtMonth || 'fev';
+    const monthShort = { jan: 'Jan', fev: 'Fev', mar: 'Mar', abr: 'Abr' };
+
+    container.innerHTML = '';
+    goals.forEach((goal) => {
+      const palette = COLOR_PALETTES[goal.color] || COLOR_PALETTES.cyan;
+      const targetVal = getEffectiveGoalTarget(goal);
+      const row = document.createElement('div');
+      row.className = 'p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-xs';
+
+      let targetDesc = formatBRL(targetVal);
+      if (goal.isContas && goal.syncWithDebts !== false) {
+        targetDesc = `${formatBRL(targetVal)} <span class="text-[10px] text-emerald-400 font-semibold">(Aba Dívidas ${monthShort[currentMonth] || currentMonth})</span>`;
+      }
+
+      row.innerHTML = `
+        <div class="flex items-center space-x-2.5">
+          <span class="w-2.5 h-2.5 rounded-full ${palette.glow}" style="background-color: ${HEX_COLORS[goal.color] || '#06B6D4'}"></span>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="font-bold text-white">${goal.name}</span>
+              ${goal.isContas ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Contas</span>' : ''}
+            </div>
+            <p class="text-[11px] text-slate-400 tabular-numbers">Meta: ${targetDesc}</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-1.5">
+          <button class="btn-del-goal-settings p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs active:scale-90 transition-all" data-id="${goal.id}" title="Tirar Meta">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      `;
+
+      row.querySelector('.btn-del-goal-settings').addEventListener('click', () => {
+        deleteGoal(goal.id);
+      });
+
+      container.appendChild(row);
+    });
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
   }
 
   function setInputValue(id, val) {
@@ -1664,24 +2313,16 @@
   }
 
   function saveSettings() {
-    const ext = parseFloat(document.getElementById('settingMetaExterior').value) || 500;
-    const con = parseFloat(document.getElementById('settingMetaContas').value) || 1450;
-    const res = parseFloat(document.getElementById('settingMetaReserva').value) || 400;
-    const ofi = parseFloat(document.getElementById('settingMetaOficina').value) || 250;
-    const tur = parseInt(document.getElementById('settingMetaTurnos').value, 10) || 26;
+    const turInput = document.getElementById('settingMetaTurnos');
+    const tur = turInput ? parseInt(turInput.value, 10) || 26 : 26;
 
-    appState.settings = {
-      metaExterior: ext,
-      metaContas: con,
-      metaReserva: res,
-      metaOficina: ofi,
-      metaTurnos: tur,
-    };
+    if (!appState.settings) appState.settings = {};
+    appState.settings.metaTurnos = tur;
 
     saveState();
     renderAll();
     triggerHaptic(20);
-    showToast('Metas atualizadas com sucesso!', '⚙️');
+    showToast('Meta de turnos salva!', '⚙️');
   }
 
   function exportBackupJSON() {
@@ -1739,6 +2380,12 @@
         metaOficina: 250,
         metaTurnos: 26,
       },
+      goals: [
+        { id: 'contas', name: 'Minhas Contas', target: 1450, color: 'emerald', icon: 'receipt', isContas: true, syncWithDebts: true },
+        { id: 'reserva', name: 'Minha Reserva', target: 400, color: 'purple', icon: 'shield', isPeakTarget: true },
+        { id: 'exterior', name: 'Namorado', target: 500, color: 'cyan', icon: 'heart', isPeakTarget: true },
+        { id: 'oficina', name: 'Oficina Bike', target: 250, color: 'amber', icon: 'wrench' },
+      ],
       categories: {
         exterior: { accumulated: 295.40, peakExtra: 60.00 },
         contas: { accumulated: 780.78, spent: 257.38 },
@@ -1784,6 +2431,7 @@
     const activeId = getActiveUserId();
     localStorage.removeItem(getStorageKeyForUser(activeId));
     appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.goals = JSON.parse(JSON.stringify(DEFAULT_STATE.goals));
     appState.debts = [];
     appState.entries = [];
     appState.expenses = [];
@@ -2204,7 +2852,35 @@
         appState.selectedDebtMonth = month;
         saveState();
         renderDebtsSection();
+        renderDashboardBento();
         triggerHaptic(15);
+      });
+    });
+
+    // Gerenciador de Metas (Colocar / Tirar Metas)
+    const btnOpenGoalsHome = document.getElementById('btnOpenManageGoalsHome');
+    const btnOpenGoalsAjustes = document.getElementById('btnOpenManageGoalsAjustes');
+    const btnCloseGoals = document.getElementById('btnCloseManageGoals');
+    const btnSaveGoals = document.getElementById('btnSaveGoalsModal');
+    const btnAddGoalConfirm = document.getElementById('btnAddGoalConfirm');
+
+    if (btnOpenGoalsHome) btnOpenGoalsHome.addEventListener('click', openManageGoalsModal);
+    if (btnOpenGoalsAjustes) btnOpenGoalsAjustes.addEventListener('click', openManageGoalsModal);
+    if (btnCloseGoals) btnCloseGoals.addEventListener('click', closeManageGoalsModal);
+    if (btnSaveGoals) btnSaveGoals.addEventListener('click', saveGoalsFromModal);
+    if (btnAddGoalConfirm) btnAddGoalConfirm.addEventListener('click', addCustomGoal);
+
+    // Seletor de Cores no Modal de Adicionar Meta
+    document.querySelectorAll('.btn-color-pick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-color-pick').forEach((b) => {
+          b.classList.remove('scale-110', 'border-white');
+          b.classList.add('border-transparent');
+        });
+        btn.classList.add('scale-110', 'border-white');
+        btn.classList.remove('border-transparent');
+        selectedNewGoalColor = btn.dataset.color || 'cyan';
+        triggerHaptic(10);
       });
     });
 

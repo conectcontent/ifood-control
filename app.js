@@ -30,7 +30,11 @@
     entries: [],
     expenses: [],
     challenge: {
-      mode: 100, // 100, 150 ou 283 blocos
+      mode: 100, // Quantidade de blocos (personalizável)
+      valueMode: 'fixed', // 'fixed', 'total', 'progressive'
+      blockValue: 100, // Valor padrão de cada bloco
+      targetTotal: 10000, // Meta total do desafio
+      customValues: {}, // Valores customizados opcionais: { [index]: number }
       checked: {}, // { [index]: true }
     },
     debts: [],
@@ -150,7 +154,7 @@
   // ==========================================
   // SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (GITHUB)
   // ==========================================
-  const CURRENT_APP_VERSION = '1.1.0';
+  const CURRENT_APP_VERSION = '1.2.0';
   const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/version.json';
   let pendingUpdateData = null;
 
@@ -356,7 +360,7 @@
     appState.turnCount = 0;
     appState.totalAccumulatedMonth = 0;
     appState.totalPeakExtra = 0;
-    appState.challenge = { mode: 100, checked: {} };
+    appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
     appState.categories = {
       exterior: { accumulated: 0, peakExtra: 0 },
       contas: { accumulated: 0, spent: 0 },
@@ -888,14 +892,83 @@
     }
   }
 
+  function getBlockValue(index) {
+    if (!appState.challenge) return 100;
+    const ch = appState.challenge;
+    if (ch.customValues && ch.customValues[index] !== undefined) {
+      return parseFloat(ch.customValues[index]) || 0;
+    }
+    if (ch.valueMode === 'progressive') {
+      return index;
+    }
+    if (ch.valueMode === 'total') {
+      const total = parseFloat(ch.targetTotal) || 10000;
+      const count = parseInt(ch.mode, 10) || 100;
+      return count > 0 ? total / count : 0;
+    }
+    return ch.blockValue !== undefined ? parseFloat(ch.blockValue) : 100;
+  }
+
+  function getChallengeTotalGoal() {
+    if (!appState.challenge) return 10000;
+    const ch = appState.challenge;
+    const count = parseInt(ch.mode, 10) || 100;
+    if (ch.valueMode === 'total') {
+      return parseFloat(ch.targetTotal) || (count * 100);
+    }
+    if (ch.valueMode === 'progressive') {
+      return (count * (count + 1)) / 2;
+    }
+    let total = 0;
+    for (let i = 1; i <= count; i++) {
+      total += getBlockValue(i);
+    }
+    return total;
+  }
+
+  function getChallengeAccumulated() {
+    if (!appState.challenge) return 0;
+    const ch = appState.challenge;
+    const count = parseInt(ch.mode, 10) || 100;
+    const checked = ch.checked || {};
+    let sum = 0;
+    for (let i = 1; i <= count; i++) {
+      if (checked[i]) {
+        sum += getBlockValue(i);
+      }
+    }
+    return sum;
+  }
+
+  function promptEditBlockValue(index, currentVal) {
+    const input = prompt(`Definir valor específico para o Bloco ${index} (R$):`, currentVal.toFixed(2));
+    if (input === null) return;
+    const val = parseFloat(input.replace(',', '.'));
+    if (isNaN(val) || val < 0) {
+      showToast('Valor inválido!', '⚠️');
+      return;
+    }
+    if (!appState.challenge.customValues) appState.challenge.customValues = {};
+    appState.challenge.customValues[index] = val;
+    saveState();
+    renderChallengeGrid();
+    triggerHaptic(25);
+    showToast(`Bloco ${index} alterado para ${formatBRL(val)}!`, '🎯');
+  }
+
   function renderChallengeGrid() {
     const gridEl = document.getElementById('challengeGrid');
     if (!gridEl) return;
 
-    const mode = appState.challenge.mode || 100;
-    const checkedMap = appState.challenge.checked || {};
+    if (!appState.challenge) {
+      appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
+    }
+    const ch = appState.challenge;
+    const mode = parseInt(ch.mode, 10) || 100;
+    const checkedMap = ch.checked || {};
     let checkedCount = 0;
 
+    // Atualiza botões seletores rápidos
     document.querySelectorAll('.challenge-mode-btn').forEach((btn) => {
       const btnMode = parseInt(btn.dataset.mode, 10);
       if (btnMode === mode) {
@@ -907,25 +980,60 @@
       }
     });
 
+    const currentModeLabel = document.getElementById('challengeCurrentModeLabel');
+    if (currentModeLabel) {
+      const isPreset = [30, 50, 100, 150].includes(mode);
+      currentModeLabel.textContent = isPreset ? 'Outro' : `${mode} bl`;
+    }
+
     gridEl.innerHTML = '';
     const fragment = document.createDocumentFragment();
 
     for (let i = 1; i <= mode; i++) {
       const isChecked = !!checkedMap[i];
       if (isChecked) checkedCount++;
+      const val = getBlockValue(i);
 
       const block = document.createElement('button');
       block.type = 'button';
-      block.className = `h-11 rounded-xl font-bold text-xs flex items-center justify-center transition-all tabular-numbers active:scale-90 ${
+      block.className = `min-h-[50px] py-1.5 px-1 rounded-xl font-bold flex flex-col items-center justify-center transition-all tabular-numbers active:scale-90 select-none ${
         isChecked
           ? 'bg-gradient-to-tr from-purple-600 to-cyan-500 text-white shadow-lg shadow-purple-500/30 border border-white/30 scale-100'
           : 'bg-white/5 border border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200'
       }`;
-      block.textContent = isChecked ? `✓ ${i}` : `${i}`;
       block.dataset.index = i;
 
+      block.innerHTML = `
+        <span class="text-xs font-black leading-tight">${isChecked ? `✓ ${i}` : `${i}`}</span>
+        <span class="text-[8.5px] font-bold opacity-80 leading-tight mt-0.5">${formatBRL(val)}</span>
+      `;
+
+      let pressTimer = null;
+      let isLongPress = false;
+
       block.addEventListener('click', () => {
-        toggleChallengeBlock(i);
+        if (!isLongPress) {
+          toggleChallengeBlock(i);
+        }
+        isLongPress = false;
+      });
+
+      block.addEventListener('touchstart', () => {
+        isLongPress = false;
+        pressTimer = setTimeout(() => {
+          isLongPress = true;
+          triggerHaptic(35);
+          promptEditBlockValue(i, val);
+        }, 600);
+      }, { passive: true });
+
+      block.addEventListener('touchend', () => {
+        if (pressTimer) clearTimeout(pressTimer);
+      });
+
+      block.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        promptEditBlockValue(i, val);
       });
 
       fragment.appendChild(block);
@@ -934,24 +1042,29 @@
 
     const checkedCountEl = document.getElementById('challengeCheckedCount');
     const totalCountEl = document.getElementById('challengeTotalCount');
+    const remainingCountEl = document.getElementById('challengeRemainingCount');
     const pctEl = document.getElementById('challengePct');
     const barEl = document.getElementById('challengeProgressBar');
     const accumValEl = document.getElementById('challengeAccumulatedVal');
+    const metaGoalEl = document.getElementById('challengeMetaGoalDisplay');
 
     if (checkedCountEl) checkedCountEl.textContent = checkedCount;
     if (totalCountEl) totalCountEl.textContent = mode;
+    if (remainingCountEl) remainingCountEl.textContent = `${Math.max(0, mode - checkedCount)} restantes`;
 
-    const pct = Math.round((checkedCount / mode) * 100);
+    const pct = mode > 0 ? Math.round((checkedCount / mode) * 100) : 0;
     if (pctEl) pctEl.textContent = `${pct}%`;
     if (barEl) barEl.style.width = `${pct}%`;
 
-    if (accumValEl) {
-      const estimatedValue = checkedCount * 100;
-      accumValEl.textContent = formatBRL(estimatedValue);
-    }
+    const accumulatedTotal = getChallengeAccumulated();
+    const targetGoal = getChallengeTotalGoal();
+
+    if (accumValEl) accumValEl.textContent = formatBRL(accumulatedTotal);
+    if (metaGoalEl) metaGoalEl.textContent = `Meta: ${formatBRL(targetGoal)}`;
   }
 
   function toggleChallengeBlock(index) {
+    if (!appState.challenge) appState.challenge = {};
     if (!appState.challenge.checked) appState.challenge.checked = {};
     const current = !!appState.challenge.checked[index];
     if (current) {
@@ -961,7 +1074,160 @@
     }
     saveState();
     renderChallengeGrid();
-    triggerHaptic(25);
+    triggerHaptic(20);
+  }
+
+  let tempChallengeValueMode = 'fixed';
+
+  function openChallengeSettingsModal() {
+    const modal = document.getElementById('modalChallengeSettings');
+    if (!modal) return;
+
+    if (!appState.challenge) {
+      appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
+    }
+    const ch = appState.challenge;
+
+    const inputCount = document.getElementById('inputChallengeCount');
+    const inputBlockVal = document.getElementById('inputChallengeBlockValue');
+    const inputTotalGoal = document.getElementById('inputChallengeTotalGoal');
+
+    if (inputCount) inputCount.value = ch.mode || 100;
+    if (inputBlockVal) inputBlockVal.value = ch.blockValue !== undefined ? ch.blockValue : 100;
+    if (inputTotalGoal) inputTotalGoal.value = ch.targetTotal || (inputCount ? inputCount.value * 100 : 10000);
+
+    setChallengeSettingsValueMode(ch.valueMode || 'fixed');
+    updateChallengeSettingsPreview();
+
+    modal.classList.remove('hidden');
+    triggerHaptic(15);
+  }
+
+  function setChallengeSettingsValueMode(mode) {
+    tempChallengeValueMode = mode;
+
+    const btnFixed = document.getElementById('btnModeValFixed');
+    const btnTotal = document.getElementById('btnModeValTotal');
+    const btnProg = document.getElementById('btnModeValProgressive');
+
+    const secFixed = document.getElementById('sectionFixedValue');
+    const secTotal = document.getElementById('sectionTotalGoal');
+    const secProg = document.getElementById('sectionProgressiveInfo');
+
+    [btnFixed, btnTotal, btnProg].forEach((b) => {
+      if (b) {
+        b.className = 'py-1.5 px-1 rounded-xl font-bold transition-all text-slate-400 hover:text-white';
+      }
+    });
+
+    if (mode === 'fixed') {
+      if (btnFixed) btnFixed.className = 'py-1.5 px-1 rounded-xl font-bold transition-all bg-purple-600 text-white shadow-glow-purple';
+      if (secFixed) secFixed.classList.remove('hidden');
+      if (secTotal) secTotal.classList.add('hidden');
+      if (secProg) secProg.classList.add('hidden');
+    } else if (mode === 'total') {
+      if (btnTotal) btnTotal.className = 'py-1.5 px-1 rounded-xl font-bold transition-all bg-purple-600 text-white shadow-glow-purple';
+      if (secFixed) secFixed.classList.add('hidden');
+      if (secTotal) secTotal.classList.remove('hidden');
+      if (secProg) secProg.classList.add('hidden');
+    } else if (mode === 'progressive') {
+      if (btnProg) btnProg.className = 'py-1.5 px-1 rounded-xl font-bold transition-all bg-purple-600 text-white shadow-glow-purple';
+      if (secFixed) secFixed.classList.add('hidden');
+      if (secTotal) secTotal.classList.add('hidden');
+      if (secProg) secProg.classList.remove('hidden');
+    }
+
+    updateChallengeSettingsPreview();
+  }
+
+  function updateChallengeSettingsPreview() {
+    const inputCount = document.getElementById('inputChallengeCount');
+    const inputBlockVal = document.getElementById('inputChallengeBlockValue');
+    const inputTotalGoal = document.getElementById('inputChallengeTotalGoal');
+
+    const previewCount = document.getElementById('previewChallengeCount');
+    const previewBlockVal = document.getElementById('previewChallengeBlockVal');
+    const previewTotalGoal = document.getElementById('previewChallengeTotalGoal');
+
+    const count = Math.max(1, parseInt(inputCount && inputCount.value ? inputCount.value : 100, 10) || 100);
+    let blockVal = 100;
+    let totalGoal = 10000;
+
+    if (tempChallengeValueMode === 'fixed') {
+      blockVal = parseFloat(inputBlockVal && inputBlockVal.value ? inputBlockVal.value : 100) || 0;
+      totalGoal = count * blockVal;
+    } else if (tempChallengeValueMode === 'total') {
+      totalGoal = parseFloat(inputTotalGoal && inputTotalGoal.value ? inputTotalGoal.value : 10000) || 0;
+      blockVal = count > 0 ? totalGoal / count : 0;
+    } else if (tempChallengeValueMode === 'progressive') {
+      totalGoal = (count * (count + 1)) / 2;
+      blockVal = `R$ 1 até R$ ${count}`;
+    }
+
+    if (previewCount) previewCount.textContent = `${count} blocos`;
+    if (previewBlockVal) previewBlockVal.textContent = typeof blockVal === 'number' ? formatBRL(blockVal) : blockVal;
+    if (previewTotalGoal) previewTotalGoal.textContent = formatBRL(totalGoal);
+  }
+
+  function saveChallengeSettings() {
+    const inputCount = document.getElementById('inputChallengeCount');
+    const inputBlockVal = document.getElementById('inputChallengeBlockValue');
+    const inputTotalGoal = document.getElementById('inputChallengeTotalGoal');
+
+    const count = parseInt(inputCount ? inputCount.value : 100, 10);
+    if (isNaN(count) || count <= 0) {
+      showToast('Digite uma quantidade de blocos válida (mínimo 1)!', '⚠️');
+      return;
+    }
+    if (count > 1000) {
+      showToast('O limite máximo recomendado é 1.000 blocos.', '⚠️');
+      return;
+    }
+
+    if (!appState.challenge) appState.challenge = {};
+    appState.challenge.mode = count;
+    appState.challenge.valueMode = tempChallengeValueMode;
+
+    if (tempChallengeValueMode === 'fixed') {
+      const bVal = parseFloat(inputBlockVal ? inputBlockVal.value : 100);
+      appState.challenge.blockValue = isNaN(bVal) || bVal < 0 ? 100 : bVal;
+      appState.challenge.targetTotal = count * appState.challenge.blockValue;
+    } else if (tempChallengeValueMode === 'total') {
+      const tGoal = parseFloat(inputTotalGoal ? inputTotalGoal.value : 10000);
+      appState.challenge.targetTotal = isNaN(tGoal) || tGoal < 0 ? 10000 : tGoal;
+      appState.challenge.blockValue = count > 0 ? appState.challenge.targetTotal / count : 100;
+    } else if (tempChallengeValueMode === 'progressive') {
+      appState.challenge.targetTotal = (count * (count + 1)) / 2;
+    }
+
+    // Se a quantidade de blocos diminuiu, remove marcações além do limite
+    if (appState.challenge.checked) {
+      Object.keys(appState.challenge.checked).forEach((k) => {
+        if (parseInt(k, 10) > count) {
+          delete appState.challenge.checked[k];
+        }
+      });
+    }
+
+    saveState();
+    renderChallengeGrid();
+
+    const modal = document.getElementById('modalChallengeSettings');
+    if (modal) modal.classList.add('hidden');
+
+    triggerHaptic(30);
+    showToast(`Desafio configurado: ${count} blocos de ${formatBRL(appState.challenge.blockValue || 0)}!`, '🎯');
+  }
+
+  function resetAllChallengeChecks() {
+    if (!confirm('Deseja desmarcar todos os quadradinhos para reiniciar este desafio?')) return;
+    if (appState.challenge) {
+      appState.challenge.checked = {};
+    }
+    saveState();
+    renderChallengeGrid();
+    triggerHaptic(20);
+    showToast('Todos os quadradinhos foram desmarcados.', '🧹');
   }
 
   function renderAnalyticsAndDonut() {
@@ -1524,7 +1790,7 @@
     appState.turnCount = 0;
     appState.totalAccumulatedMonth = 0;
     appState.totalPeakExtra = 0;
-    appState.challenge = { mode: 100, checked: {} };
+    appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
     saveState();
     renderAll();
     showToast('Dados do usuário atual foram resetados (100% zerado).', '🧹');
@@ -1845,9 +2111,86 @@
       });
     }
 
+    // Modal Configurar Desafio
+    const btnOpenChallengeSettings = document.getElementById('btnOpenChallengeSettings');
+    const btnCustomChallengePill = document.getElementById('btnCustomChallengePill');
+    const btnCloseChallengeSettings = document.getElementById('btnCloseChallengeSettings');
+    const btnCancelChallengeSettings = document.getElementById('btnCancelChallengeSettings');
+    const btnSaveChallengeSettings = document.getElementById('btnSaveChallengeSettings');
+    const btnResetChallengeChecks = document.getElementById('btnResetChallengeChecks');
+
+    if (btnOpenChallengeSettings) {
+      btnOpenChallengeSettings.addEventListener('click', openChallengeSettingsModal);
+    }
+    if (btnCustomChallengePill) {
+      btnCustomChallengePill.addEventListener('click', openChallengeSettingsModal);
+    }
+    if (btnCloseChallengeSettings) {
+      btnCloseChallengeSettings.addEventListener('click', () => {
+        const m = document.getElementById('modalChallengeSettings');
+        if (m) m.classList.add('hidden');
+      });
+    }
+    if (btnCancelChallengeSettings) {
+      btnCancelChallengeSettings.addEventListener('click', () => {
+        const m = document.getElementById('modalChallengeSettings');
+        if (m) m.classList.add('hidden');
+      });
+    }
+    if (btnSaveChallengeSettings) {
+      btnSaveChallengeSettings.addEventListener('click', saveChallengeSettings);
+    }
+    if (btnResetChallengeChecks) {
+      btnResetChallengeChecks.addEventListener('click', resetAllChallengeChecks);
+    }
+
+    // Modos de cálculo do desafio no modal
+    const btnModeValFixed = document.getElementById('btnModeValFixed');
+    const btnModeValTotal = document.getElementById('btnModeValTotal');
+    const btnModeValProgressive = document.getElementById('btnModeValProgressive');
+
+    if (btnModeValFixed) btnModeValFixed.addEventListener('click', () => setChallengeSettingsValueMode('fixed'));
+    if (btnModeValTotal) btnModeValTotal.addEventListener('click', () => setChallengeSettingsValueMode('total'));
+    if (btnModeValProgressive) btnModeValProgressive.addEventListener('click', () => setChallengeSettingsValueMode('progressive'));
+
+    // Inputs com prévia em tempo real
+    const inputChallengeCount = document.getElementById('inputChallengeCount');
+    const inputChallengeBlockValue = document.getElementById('inputChallengeBlockValue');
+    const inputChallengeTotalGoal = document.getElementById('inputChallengeTotalGoal');
+
+    [inputChallengeCount, inputChallengeBlockValue, inputChallengeTotalGoal].forEach((inp) => {
+      if (inp) inp.addEventListener('input', updateChallengeSettingsPreview);
+    });
+
+    // Atalhos de quantidade no modal
+    document.querySelectorAll('.btn-preset-count').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const count = btn.dataset.count;
+        if (inputChallengeCount) {
+          inputChallengeCount.value = count;
+          updateChallengeSettingsPreview();
+          triggerHaptic(10);
+        }
+      });
+    });
+
+    // Atalhos de valor no modal
+    document.querySelectorAll('.btn-preset-val').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.val;
+        if (inputChallengeBlockValue) {
+          inputChallengeBlockValue.value = val;
+          updateChallengeSettingsPreview();
+          triggerHaptic(10);
+        }
+      });
+    });
+
+    // Seletores rápidos na aba Desafio
     document.querySelectorAll('.challenge-mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = parseInt(btn.dataset.mode, 10);
+        if (!appState.challenge) appState.challenge = {};
         appState.challenge.mode = mode;
         saveState();
         renderChallengeGrid();

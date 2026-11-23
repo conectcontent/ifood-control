@@ -309,7 +309,7 @@
   // ==========================================
   // SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (GITHUB)
   // ==========================================
-  const CURRENT_APP_VERSION = '1.4.0';
+  const CURRENT_APP_VERSION = '1.5.0';
   const VERSION_MANIFEST_URL = 'https://raw.githubusercontent.com/conectcontent/ifood-control/main/version.json';
   let pendingUpdateData = null;
 
@@ -1564,20 +1564,112 @@
     return sum;
   }
 
-  function promptEditBlockValue(index, currentVal) {
-    const input = prompt(`Definir valor específico para o Bloco ${index} (R$):`, currentVal.toFixed(2));
-    if (input === null) return;
-    const val = parseFloat(input.replace(',', '.'));
-    if (isNaN(val) || val < 0) {
-      showToast('Valor inválido!', '⚠️');
+  let activeDepositBlockIndex = null;
+
+  function openBlockDepositModal(index) {
+    activeDepositBlockIndex = index;
+    const modal = document.getElementById('modalBlockDeposit');
+    if (!modal) return;
+
+    if (!appState.challenge) {
+      appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
+    }
+
+    const isChecked = !!(appState.challenge.checked && appState.challenge.checked[index]);
+    const currentVal = getBlockValue(index);
+
+    const iconEl = document.getElementById('modalBlockIcon');
+    const titleEl = document.getElementById('modalBlockTitle');
+    const inputVal = document.getElementById('inputBlockDepositValue');
+    const statusBadge = document.getElementById('modalBlockCurrentStatus');
+    const confirmBtnText = document.getElementById('btnConfirmBlockDepositText');
+    const btnUncheck = document.getElementById('btnUncheckBlockDeposit');
+
+    if (iconEl) iconEl.textContent = `#${index}`;
+    if (titleEl) titleEl.textContent = `Depósito no Bloco #${index}`;
+    if (inputVal) {
+      inputVal.value = currentVal;
+    }
+
+    if (statusBadge) {
+      if (isChecked) {
+        statusBadge.textContent = `Concluído (${formatBRL(currentVal)})`;
+        statusBadge.className = 'font-bold text-emerald-400';
+      } else {
+        statusBadge.textContent = 'Pendente';
+        statusBadge.className = 'font-bold text-amber-300';
+      }
+    }
+
+    if (confirmBtnText) {
+      confirmBtnText.textContent = isChecked ? 'Atualizar Valor Depositado' : 'Confirmar Depósito';
+    }
+
+    if (btnUncheck) {
+      if (isChecked) {
+        btnUncheck.classList.remove('hidden');
+      } else {
+        btnUncheck.classList.add('hidden');
+      }
+    }
+
+    modal.classList.remove('hidden');
+    triggerHaptic(15);
+
+    setTimeout(() => {
+      if (inputVal) {
+        inputVal.focus();
+        inputVal.select();
+      }
+    }, 100);
+  }
+
+  function closeBlockDepositModal() {
+    const modal = document.getElementById('modalBlockDeposit');
+    if (modal) modal.classList.add('hidden');
+    activeDepositBlockIndex = null;
+  }
+
+  function confirmBlockDeposit() {
+    if (activeDepositBlockIndex === null) return;
+    const inputVal = document.getElementById('inputBlockDepositValue');
+    const val = parseFloat(inputVal ? inputVal.value.replace(',', '.') : 0);
+
+    if (isNaN(val) || val <= 0) {
+      showToast('Informe um valor de depósito maior que zero!', '⚠️');
       return;
     }
+
+    if (!appState.challenge) {
+      appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
+    }
     if (!appState.challenge.customValues) appState.challenge.customValues = {};
-    appState.challenge.customValues[index] = val;
+    if (!appState.challenge.checked) appState.challenge.checked = {};
+
+    appState.challenge.customValues[activeDepositBlockIndex] = val;
+    appState.challenge.checked[activeDepositBlockIndex] = true;
+
     saveState();
     renderChallengeGrid();
-    triggerHaptic(25);
-    showToast(`Bloco ${index} alterado para ${formatBRL(val)}!`, '🎯');
+    closeBlockDepositModal();
+    triggerHaptic(30);
+    showToast(`Depósito de ${formatBRL(val)} confirmado no Bloco #${activeDepositBlockIndex}!`, '🎯');
+  }
+
+  function uncheckBlockDeposit() {
+    if (activeDepositBlockIndex === null) return;
+    if (appState.challenge && appState.challenge.checked) {
+      delete appState.challenge.checked[activeDepositBlockIndex];
+    }
+    saveState();
+    renderChallengeGrid();
+    closeBlockDepositModal();
+    triggerHaptic(20);
+    showToast(`Bloco #${activeDepositBlockIndex} marcado como pendente.`, '↩️');
+  }
+
+  function promptEditBlockValue(index, currentVal) {
+    openBlockDepositModal(index);
   }
 
   function renderChallengeGrid() {
@@ -1637,7 +1729,7 @@
 
       block.addEventListener('click', () => {
         if (!isLongPress) {
-          toggleChallengeBlock(i);
+          openBlockDepositModal(i);
         }
         isLongPress = false;
       });
@@ -1646,9 +1738,9 @@
         isLongPress = false;
         pressTimer = setTimeout(() => {
           isLongPress = true;
-          triggerHaptic(35);
-          promptEditBlockValue(i, val);
-        }, 600);
+          triggerHaptic(25);
+          openBlockDepositModal(i);
+        }, 500);
       }, { passive: true });
 
       block.addEventListener('touchend', () => {
@@ -1657,7 +1749,7 @@
 
       block.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        promptEditBlockValue(i, val);
+        openBlockDepositModal(i);
       });
 
       fragment.appendChild(block);
@@ -2301,6 +2393,7 @@
     const s = appState.settings || {};
     setInputValue('settingMetaTurnos', s.metaTurnos || 26);
     renderSettingsGoalsList();
+    renderSettingsChallengeForm();
   }
 
   function renderSettingsGoalsList() {
@@ -2308,32 +2401,36 @@
     if (!container) return;
     const goals = getGoalsList();
     const currentMonth = appState.selectedDebtMonth || 'fev';
-    const monthShort = { jan: 'Jan', fev: 'Fev', mar: 'Mar', abr: 'Abr' };
+    const monthShort = {
+      jan: 'Jan', fev: 'Fev', mar: 'Mar', abr: 'Abr',
+      mai: 'Mai', jun: 'Jun', jul: 'Jul', ago: 'Ago',
+      set: 'Set', out: 'Out', nov: 'Nov', dez: 'Dez'
+    };
 
     container.innerHTML = '';
     goals.forEach((goal) => {
       const palette = COLOR_PALETTES[goal.color] || COLOR_PALETTES.cyan;
       const targetVal = getEffectiveGoalTarget(goal);
+      const isSynced = goal.isContas && goal.syncWithDebts !== false;
       const row = document.createElement('div');
-      row.className = 'p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-xs';
-
-      let targetDesc = formatBRL(targetVal);
-      if (goal.isContas && goal.syncWithDebts !== false) {
-        targetDesc = `${formatBRL(targetVal)} <span class="text-[10px] text-emerald-400 font-semibold">(Aba Dívidas ${monthShort[currentMonth] || currentMonth})</span>`;
-      }
+      row.className = 'p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-xs gap-2';
 
       row.innerHTML = `
-        <div class="flex items-center space-x-2.5">
-          <span class="w-2.5 h-2.5 rounded-full ${palette.glow}" style="background-color: ${HEX_COLORS[goal.color] || '#06B6D4'}"></span>
-          <div>
+        <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${palette.glow}" style="background-color: ${HEX_COLORS[goal.color] || '#06B6D4'}"></span>
+          <div class="min-w-0">
             <div class="flex items-center space-x-1.5">
-              <span class="font-bold text-white">${goal.name}</span>
+              <span class="font-bold text-white truncate">${goal.name}</span>
               ${goal.isContas ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Contas</span>' : ''}
             </div>
-            <p class="text-[11px] text-slate-400 tabular-numbers">Meta: ${targetDesc}</p>
+            ${isSynced ? `<p class="text-[10px] text-emerald-400 font-medium">Sincronizado com Dívidas (${monthShort[currentMonth] || currentMonth})</p>` : `<p class="text-[10px] text-slate-400">Meta Mensal</p>`}
           </div>
         </div>
-        <div class="flex items-center space-x-1.5">
+        <div class="flex items-center space-x-2 flex-shrink-0">
+          <div class="relative w-28">
+            <span class="absolute left-2.5 top-2 text-[10px] text-slate-400 font-bold">R$</span>
+            <input type="number" step="0.01" class="setting-goal-target-input w-full bg-black/40 border ${isSynced ? 'border-emerald-500/20 opacity-70 cursor-not-allowed' : 'border-white/10 focus:border-cyan-400'} rounded-xl py-1.5 pl-7 pr-2 text-xs font-bold text-white focus:outline-none" data-goal-id="${goal.id}" value="${targetVal}" ${isSynced ? 'readonly title="Sincronizado com a aba Dívidas"' : ''}>
+          </div>
           <button class="btn-del-goal-settings p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs active:scale-90 transition-all" data-id="${goal.id}" title="Tirar Meta">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>
@@ -2352,6 +2449,84 @@
     }
   }
 
+  function renderSettingsChallengeForm() {
+    if (!appState.challenge) {
+      appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
+    }
+    const ch = appState.challenge;
+    const mode = parseInt(ch.mode, 10) || 100;
+    const blockVal = ch.blockValue !== undefined ? ch.blockValue : 100;
+    const targetTotal = ch.targetTotal !== undefined ? ch.targetTotal : (mode * blockVal);
+
+    setInputValue('settingChallengeTargetTotal', targetTotal);
+    setInputValue('settingChallengeCount', mode);
+    setInputValue('settingChallengeBlockValue', blockVal);
+
+    const badge = document.getElementById('badgeChallengeSummary');
+    if (badge) badge.textContent = `${mode} blocos`;
+  }
+
+  function autoCalcChallengeBlockValue() {
+    const totalInput = document.getElementById('settingChallengeTargetTotal');
+    const countInput = document.getElementById('settingChallengeCount');
+    const blockValInput = document.getElementById('settingChallengeBlockValue');
+
+    const total = parseFloat(totalInput?.value) || 0;
+    const count = parseInt(countInput?.value, 10) || 100;
+
+    if (count <= 0) {
+      showToast('A quantidade de quadradinhos deve ser maior que 0!', '⚠️');
+      return;
+    }
+    if (total <= 0) {
+      showToast('Informe o valor total da meta para calcular!', '⚠️');
+      return;
+    }
+
+    const val = Math.round((total / count) * 100) / 100;
+    if (blockValInput) blockValInput.value = val;
+    triggerHaptic(15);
+    showToast(`Valor calculado: ${formatBRL(val)} por quadradinho`, '🧮');
+  }
+
+  function saveChallengeSettingsFromTab() {
+    const totalInput = document.getElementById('settingChallengeTargetTotal');
+    const countInput = document.getElementById('settingChallengeCount');
+    const blockValInput = document.getElementById('settingChallengeBlockValue');
+
+    let total = parseFloat(totalInput?.value) || 0;
+    let count = parseInt(countInput?.value, 10) || 100;
+    let blockVal = parseFloat(blockValInput?.value) || 0;
+
+    if (count < 1) count = 1;
+    if (count > 1000) count = 1000;
+
+    if (blockVal <= 0 && total > 0 && count > 0) {
+      blockVal = Math.round((total / count) * 100) / 100;
+      if (blockValInput) blockValInput.value = blockVal;
+    }
+
+    if (total <= 0 && blockVal > 0 && count > 0) {
+      total = Math.round(count * blockVal * 100) / 100;
+      if (totalInput) totalInput.value = total;
+    }
+
+    if (!appState.challenge) {
+      appState.challenge = { mode: 100, valueMode: 'fixed', blockValue: 100, targetTotal: 10000, customValues: {}, checked: {} };
+    }
+
+    appState.challenge.mode = count;
+    appState.challenge.blockValue = blockVal;
+    appState.challenge.targetTotal = total;
+    appState.challenge.valueMode = 'fixed';
+
+    saveState();
+    renderChallengeGrid();
+    renderSettingsChallengeForm();
+    triggerHaptic(25);
+    showToast(`Tabela do desafio atualizada: ${count} quadradinhos de ${formatBRL(blockVal)}!`, '🏆');
+  }
+
   function setInputValue(id, val) {
     const el = document.getElementById(id);
     if (el) el.value = val;
@@ -2364,10 +2539,28 @@
     if (!appState.settings) appState.settings = {};
     appState.settings.metaTurnos = tur;
 
+    // Salvar metas editadas na lista de configurações
+    const targetInputs = document.querySelectorAll('.setting-goal-target-input');
+    const goals = getGoalsList();
+    targetInputs.forEach((input) => {
+      const gId = input.dataset.goalId;
+      const targetVal = parseFloat(input.value);
+      if (!isNaN(targetVal) && targetVal >= 0) {
+        const goal = goals.find((g) => g.id === gId);
+        if (goal && (!goal.isContas || goal.syncWithDebts === false)) {
+          goal.target = targetVal;
+          if (gId === 'exterior') appState.settings.metaExterior = targetVal;
+          if (gId === 'reserva') appState.settings.metaReserva = targetVal;
+          if (gId === 'oficina') appState.settings.metaOficina = targetVal;
+          if (gId === 'contas') appState.settings.metaContas = targetVal;
+        }
+      }
+    });
+
     saveState();
     renderAll();
     triggerHaptic(20);
-    showToast('Meta de turnos salva!', '⚙️');
+    showToast('Metas e turnos atualizados com sucesso!', '⚙️');
   }
 
   function exportBackupJSON() {
@@ -2875,6 +3068,45 @@
           inputChallengeBlockValue.value = val;
           updateChallengeSettingsPreview();
           triggerHaptic(10);
+        }
+      });
+    });
+
+    // Modal de Depósito no Bloco (Gamificação do Desafio)
+    const btnCloseBlockDeposit = document.getElementById('btnCloseBlockDepositModal');
+    const btnConfirmBlockDeposit = document.getElementById('btnConfirmBlockDeposit');
+    const btnUncheckBlockDeposit = document.getElementById('btnUncheckBlockDeposit');
+
+    if (btnCloseBlockDeposit) btnCloseBlockDeposit.addEventListener('click', closeBlockDepositModal);
+    if (btnConfirmBlockDeposit) btnConfirmBlockDeposit.addEventListener('click', confirmBlockDeposit);
+    if (btnUncheckBlockDeposit) btnUncheckBlockDeposit.addEventListener('click', uncheckBlockDeposit);
+
+    document.querySelectorAll('.btn-deposit-preset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const v = parseFloat(btn.dataset.val);
+        if (v) {
+          const inputVal = document.getElementById('inputBlockDepositValue');
+          if (inputVal) inputVal.value = v;
+          triggerHaptic(10);
+        }
+      });
+    });
+
+    // Desafio Edição na Aba Ajustes (Tab 5)
+    const btnSaveChallengeTab = document.getElementById('btnSaveChallengeSettingsTab');
+    const btnAutoCalcTab = document.getElementById('btnAutoCalcBlockValue');
+
+    if (btnSaveChallengeTab) btnSaveChallengeTab.addEventListener('click', saveChallengeSettingsFromTab);
+    if (btnAutoCalcTab) btnAutoCalcTab.addEventListener('click', autoCalcChallengeBlockValue);
+
+    document.querySelectorAll('.btn-setting-challenge-preset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const c = parseInt(btn.dataset.count, 10);
+        if (c) {
+          const countInput = document.getElementById('settingChallengeCount');
+          if (countInput) countInput.value = c;
+          autoCalcChallengeBlockValue();
+          triggerHaptic(15);
         }
       });
     });

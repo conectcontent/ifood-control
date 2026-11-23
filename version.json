@@ -1,8 +1,8 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "minRequiredVersion": "1.0.0",
   "releaseDate": "2026-11-23",
-  "releaseNotes": "v1.4: Calendário anual completo com os 12 meses (Janeiro a Dezembro) na aba Dívidas & Parcelamentos, atalhos de Ano Todo e sincronização em tempo real.",
+  "releaseNotes": "v1.5: Desafio Edição na aba Ajustes (Valor Total, Quantidade de Quadradinhos e Valor do Depósito), Modal de Depósito Personalizado por Bloco ao clicar no quadradinho, e Calendário Anual de 12 Meses.",
   "apkDownloadUrl": "https://github.com/conectcontent/ifood-control/releases/latest/download/Fintech-iFood-Control.apk",
   "mandatory": false
 }
